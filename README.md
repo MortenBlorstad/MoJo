@@ -2,28 +2,23 @@
 
 ## Getting started
 
-1. Install Mamba (if not already installed)
-```
-conda install mamba -n base -c conda-forge
-```
-
-2. Create a New Environment
+1. Create a New Environment
 
 ```
-mamba create -n "lux-s3" "python==3.11"
+conda create -n lux-s3 python=3.11
 ```
 
-3. Activate the Environment
+2. Activate the Environment
 ```
-mamba activate lux-s3
+conda activate lux-s3
 ```
 
-4. Clone the Repository
+3. Clone the Repository
 ```
 git clone https://github.com/Lux-AI-Challenge/Lux-Design-S3/
 ```
 
-5. Install the Package
+4. Install the Package
 ```
 cd Lux-Design-S3/src
 pip install -e .
