@@ -1,0 +1,21 @@
+1. Edit src /luxau_s3/wrappers.py, on line 66 insert:
+
+
+        # Save the universe :-)
+        import pickle        
+        cheatfile = './../MoJo/world/world.pkl'        
+        with open(cheatfile, 'wb') as f:
+            pickle.dump(self.state, f)
+
+
+2. Enter & activate venv Lux-Design-S3
+
+3. run
+luxai-s3 ./../MoJo/agents/main.py ./../MoJo/agents/main.py --seed 12345 --output ./../MoJo/world/seed1235.json
+
+4. run
+python ./../MoJo/world/tonumpy.py
+
+5. Open Jupyter notebook MoJo/other/World.ipynb from Your (Windows?) installation
+edit local paths
+run
