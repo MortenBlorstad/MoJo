@@ -1,6 +1,11 @@
 
+import sys
+import os
+
+# Add the parent directory (Lux-Design-S3 level) to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 from luxai_s3.wrappers import LuxAIS3GymEnv
-from agents.agent import Agent
+from MoJo.agents.agent import Agent
 
 
 env = LuxAIS3GymEnv(numpy_output=True)
