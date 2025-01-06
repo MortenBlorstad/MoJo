@@ -21,6 +21,13 @@ The full game rules/specs can be found [here](https://github.com/Lux-AI-Challeng
 - **Mission control**: an agent assigning tasks/missions to unit agents (e.g. explore or gather points (relic))
 -  **Env Model**: Model of the world/env/state/transition used to predict the next $n$ states.
 
+*TODO*
+- [ ] Make Env Model, $O_{t+1} \sim P(\cdot | O_t)$
+- [ ] Make simple Mission control with two missions to explore or relic.
+- [ ] Make simple Unit agents that can perform two missions explore or relic.
+  - [ ]   explore
+  - [ ]   relic
+
 ### State
 The world is a 24x24 grid.
 
@@ -42,13 +49,17 @@ $O_{t+1}:O_{t+3}$ is given by the Env Model, $\sim P(\cdot | O_t)$
 
 ![state](https://github.com/user-attachments/assets/9c09c31d-b274-43fc-be4d-1934c46f2e35)
 
-
+*TODO*
+- [ ] Make a function that creates observation: $O_t$: $24x24x8$
 
 ### Reward 
 Different rewards depending on the  type of agent and mission:
 - Mission control: overall reward (e.g. our team score or our team score/opponents team score)
 - Unit agent: a specific reward function for each task. 
 
-
+*TODO*
+- [ ] define a reward function for Mission control.
+- [ ] define a reward function for Unit agent - relic.
+- [ ] define a reward function for Unit agent - explore.
 
 
