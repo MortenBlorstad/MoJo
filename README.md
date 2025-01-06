@@ -22,9 +22,25 @@ The full game rules/specs can be found [here](https://github.com/Lux-AI-Challeng
 -  **Env Model**: Model of the world/env/state/transition used to predict the next $n$ states.
 
 *State*
-The world is a 24x24 grid consisting of Nebula Tiles (N), Energy Nodes (E), Asteroid Tiles (A), Relic Nodes (R), player 1 Unit ($P_1$), player 2 Unit ($P_2$) 
+The world is a 24x24 grid.
 
-S: $24x24x9$
+
+S: $24x24x8$
+
+8 channels: 
+- Player 1 Unit ($P_1$)
+- Player 2 Unit ($P_2$)
+- Nebula Tiles (N)
+- Energy Nodes (E)
+- Energy Void (V)
+- Asteroid Tiles (A)
+- Relic Nodes (R)
+- Observered / in vision (O)
+
+
+
+![state](https://github.com/user-attachments/assets/9c09c31d-b274-43fc-be4d-1934c46f2e35)
+
 
 
 *Reward* 
