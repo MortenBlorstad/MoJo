@@ -20,9 +20,17 @@ The full game rules/specs can be found [here](https://github.com/Lux-AI-Challeng
 - **Unit agent**: an agent that controls a unit. Performs tasks/missions.  
 - **Mission control**: an agent assigning tasks/missions to unit agents (e.g. explore or gather points (relic))
 -  **Env Model**: Model of the world/env/state/transition used to predict the next $n$ states.
--  **Reward**: Different rewards depending on the  type of agent and mission:
-    - Mission control: overall reward (e.g. our team score or our team score/opponents team score)
-    - Unit agent: a specific reward function for each task. 
+
+*State*
+The world is a 24x24 grid consisting of Nebula Tiles (N), Energy Nodes (E), Asteroid Tiles (A), Relic Nodes (R), player 1 Unit ($P_1$), player 2 Unit ($P_2$) 
+
+S: $24x24x9$
+
+
+*Reward* 
+Different rewards depending on the  type of agent and mission:
+- Mission control: overall reward (e.g. our team score or our team score/opponents team score)
+- Unit agent: a specific reward function for each task. 
 
 
 
