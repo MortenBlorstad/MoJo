@@ -25,8 +25,6 @@ The full game rules/specs can be found [here](https://github.com/Lux-AI-Challeng
 - [ ] Make Env Model, $O_{t+1} \sim P(\cdot | O_t)$
 - [ ] Make simple Mission control with two missions to explore or relic.
 - [ ] Make simple Unit agents that can perform two missions explore or relic.
-- [ ] Task 1
-  - [ ] Sub-task 1.1
   - [ ] explore
   - [ ] relic
 
