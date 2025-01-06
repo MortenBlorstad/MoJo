@@ -21,6 +21,9 @@ The full game rules/specs can be found [here](https://github.com/Lux-AI-Challeng
 - **Mission control**: an agent assigning tasks/missions to unit agents (e.g. explore or gather points (relic))
 -  **Env Model**: Model of the world/env/state/transition used to predict the next $n$ states.
 
+![agents](https://github.com/user-attachments/assets/f4cd6faa-b696-4942-b75b-8a302ffd5fa1)
+
+
 *TODO*
 - [ ] Make Env Model, $O_{t+1} \sim P(\cdot | O_t)$
 - [ ] Make simple Mission control with two missions to explore or relic.
