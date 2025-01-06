@@ -1,7 +1,7 @@
 # Lux-AI-S3
-This repo contains the Agent(s) for the Kaggle competition [*Lux AI Challenge Season 3*](https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/kits/README.md)
+This repo contains the Agent(s) for the Kaggle competition [*Lux AI Challenge Season 3*].(https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/kits/README.md)
 
-The full game rules/specs can be found [here](https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/docs/specs.md)
+The full game rules/specs can be found [here].(https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/docs/specs.md)
 
 ## How to use
 
