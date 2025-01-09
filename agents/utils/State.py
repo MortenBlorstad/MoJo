@@ -9,6 +9,7 @@ class State():
         self.opp_team_id = 1 if self.team_id == 0 else 0
 
 
+        # For obs struct see: https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/kits/README.md#observations 
 
         # player and opponent unit counts
         unit_mask = np.array(obs["units_mask"]) # shape (max_units, )
