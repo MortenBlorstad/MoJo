@@ -24,15 +24,19 @@ class State():
         self.observeable_tiles = np.array(obs["sensor_mask"], dtype=int) #S_O: 24x24
 
         # amount of energy on the tile (including void field)
-        self.envergy = np.array(obs["map_features"]["energy"])
+        self.energy = np.array(obs["map_features"]["energy"])
 
         self.nebulas = self.get_tile_type(obs["map_features"]["tile_type"],1 )
         self.asteroids = self.get_tile_type(obs["map_features"]["tile_type"],2 )
 
-
+        # added relic node to state. TODO we need to add functionality to add relic tiles
         observed_relic_node_positions = np.array(obs["relic_nodes"]) # shape (max_relic_nodes, 2)
         observed_relic_nodes_mask = np.array(obs["relic_nodes_mask"]) # shape (max_relic_nodes, )
         self.relic_nodes = self.get_relic_node_pos(observed_relic_nodes_mask,observed_relic_node_positions)
+
+
+
+
 
     def count_units(self, unit_mask, unit_positions:np.ndarray):
         player_units_count = np.zeros((24, 24), dtype=int)
