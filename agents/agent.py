@@ -21,6 +21,15 @@ class Agent():
         np.add.at(player_units_count, tuple(player_available_unit_count.T), 1)
         return player_units_count
     
+
+    def get_relic_node_pos(self, relic_nodes_mask, relic_node_positions):
+        relic_node_grid = np.zeros((24, 24), dtype=int)
+        visible_relics = np.where(relic_nodes_mask)[0]
+        visible_relics_pos = relic_node_positions[visible_relics]
+        np.add.at(relic_node_grid, tuple(visible_relics_pos.T), 1)
+        return relic_node_grid
+    
+
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         """implement this function to decide what actions to send to each available unit. 
         
@@ -40,7 +49,18 @@ class Agent():
         
         actions = np.zeros((self.env_cfg["max_units"], 3), dtype=int)
 
-    
+
+        # ===========
+        # testing that stuff is correct
+        #player_units_count = self.count_units(unit_mask,unit_positions)
+        # print("player_units_count", player_units_count)
+
+        # relics = self.count_units(observed_relic_nodes_mask,observed_relic_node_positions)
+        # print("player_units_count", relics, observed_relic_nodes_mask)
+        # ===========
+
+
+
         # basic strategy here is simply to have some units randomly explore and some units collecting as much energy as possible
         # and once a relic node is found, we send all units to move randomly around the first relic node to gain points
         # and information about where relic nodes are found are saved for the next match

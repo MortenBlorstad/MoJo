@@ -26,10 +26,13 @@ class State():
         # amount of energy on the tile (including void field)
         self.envergy = np.array(obs["map_features"]["energy"])
 
-        self.nebula = self.get_tile_type(obs["map_features"]["tile_type"],1 )
-        self.asteroid = self.get_tile_type(obs["map_features"]["tile_type"],2 )
+        self.nebulas = self.get_tile_type(obs["map_features"]["tile_type"],1 )
+        self.asteroids = self.get_tile_type(obs["map_features"]["tile_type"],2 )
 
 
+        observed_relic_node_positions = np.array(obs["relic_nodes"]) # shape (max_relic_nodes, 2)
+        observed_relic_nodes_mask = np.array(obs["relic_nodes_mask"]) # shape (max_relic_nodes, )
+        self.relic_nodes = self.get_relic_node_pos(observed_relic_nodes_mask,observed_relic_node_positions)
 
     def count_units(self, unit_mask, unit_positions:np.ndarray):
         player_units_count = np.zeros((24, 24), dtype=int)
@@ -37,6 +40,13 @@ class State():
         player_available_unit_count = unit_positions[available_unit]
         np.add.at(player_units_count, tuple(player_available_unit_count.T), 1)
         return player_units_count
+    
+    def get_relic_node_pos(self, relic_nodes_mask, relic_node_positions):
+        relic_node_grid = np.zeros((24, 24), dtype=int)
+        visible_relics = np.where(relic_nodes_mask)[0]
+        visible_relics_pos = relic_node_positions[visible_relics]
+        np.add.at(relic_node_grid, tuple(visible_relics_pos.T), 1)
+        return relic_node_grid
     
     def get_tile_type(self, tile_type, type:int):
         """
