@@ -20,7 +20,7 @@ obs, info = env.reset()
 game_done = False
 step = 0
 
-for i in range(10): # change to if while not game_done:
+for i in range(50): # change to if while not game_done:
     actions = {}
     for agent in [player_0, player_1]:
         actions[agent.player] = agent.act(step=step, obs=obs[agent.player])
