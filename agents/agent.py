@@ -1,4 +1,4 @@
-from lux.utils import direction_to
+from utils.utils import direction_to
 import sys
 import numpy as np
 class Agent():
@@ -14,6 +14,13 @@ class Agent():
         self.discovered_relic_nodes_ids = set()
         self.unit_explore_locations = dict()
 
+    def count_units(self, unit_mask, unit_positions:np.ndarray):
+        player_units_count = np.zeros((24, 24), dtype=int)
+        available_unit = np.where(unit_mask)[0]
+        player_available_unit_count = unit_positions[available_unit]
+        np.add.at(player_units_count, tuple(player_available_unit_count.T), 1)
+        return player_units_count
+    
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         """implement this function to decide what actions to send to each available unit. 
         
@@ -33,7 +40,7 @@ class Agent():
         
         actions = np.zeros((self.env_cfg["max_units"], 3), dtype=int)
 
-
+    
         # basic strategy here is simply to have some units randomly explore and some units collecting as much energy as possible
         # and once a relic node is found, we send all units to move randomly around the first relic node to gain points
         # and information about where relic nodes are found are saved for the next match

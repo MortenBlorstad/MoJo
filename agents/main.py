@@ -7,7 +7,7 @@ import numpy as np
 
 from agent import Agent
 # from lux.config import EnvConfig
-from lux.kit import from_json
+from utils.kit import from_json
 ### DO NOT REMOVE THE FOLLOWING CODE ###
 agent_dict = dict() # store potentially multiple dictionaries as kaggle imports code directly
 agent_prev_obs = dict()
