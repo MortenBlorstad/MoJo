@@ -30,7 +30,7 @@ for i in range(10): # change to if while not game_done:
 
     
     # if i ==2:
-    #     print(obs.keys(), obs["player_0"]["units"]["position"][0].shape, obs["player_0"]["units_mask"][0].shape)
+    #     print(obs.keys(),"\n", obs["player_0"]["map_features"]["energy"],"\n",obs["player_0"]["map_features"]["tile_type"], "\n",obs["player_0"]["sensor_mask"])
     #     break
     rewards = {
                 "player_0": obs["player_0"]["team_points"][player_0.team_id],
