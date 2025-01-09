@@ -8,15 +8,47 @@ class State():
         self.team_id = 0 if self.player == "player_0" else 1
         self.opp_team_id = 1 if self.team_id == 0 else 0
 
-        self.player_units = np.array(obs["units_mask"][self.team_id],dtype=int )
-        self.opponent_units = np.array(obs["units_mask"][self.opp_team_id],dtype=int )
-        unit_positions = np.array(obs["units"]["position"][self.team_id]) 
-    
-    def count_units(unit_mask, unit_positions:np.ndarray):
+
+
+        # player and opponent unit counts
+        unit_mask = np.array(obs["units_mask"]) # shape (max_units, )
+        unit_positions = np.array(obs["units"]["position"]) # shape (max_units, 2)
+        
+        self.player_units_count = self.count_units(unit_mask[self.team_id],unit_positions[self.team_id]) # SP_1: 24x24
+        self.opponent_units_count = self.count_units(unit_mask[self.opp_team_id],unit_positions[self.opp_team_id]) # SP_2:24x24
+        
+        # vi trenger denne også. TODO hvordan håndtere
+        self.unit_energys = np.array(obs["units"]["energy"][self.team_id]) # shape (max_units, 1)
+
+
+        self.observeable_tiles = np.array(obs["sensor_mask"], dtype=int) #S_O: 24x24
+
+        # amount of energy on the tile (including void field)
+        self.envergy = np.array(obs["map_features"]["energy"])
+
+        self.nebula = self.get_tile_type(obs["map_features"]["tile_type"],1 )
+        self.asteroid = self.get_tile_type(obs["map_features"]["tile_type"],2 )
+
+
+
+    def count_units(self, unit_mask, unit_positions:np.ndarray):
         player_units_count = np.zeros((24, 24), dtype=int)
         available_unit = np.where(unit_mask)[0]
         player_available_unit_count = unit_positions[available_unit]
         np.add.at(player_units_count, tuple(player_available_unit_count.T), 1)
+        return player_units_count
+    
+    def get_tile_type(self, tile_type, type:int):
+        """
+            tile_type: 24x24 with values 0,1 or 2
+            
+            type of the tile. 0 is empty, 1 is a nebula tile, 2 is asteroid
+            
+            return 24x24 matrix with 1 where tile_type value is equal to type, otherwise 0
+        """
+        grid_tile_type = (tile_type == type).astype(int)
+        return grid_tile_type
+
 
         
 
