@@ -28,6 +28,10 @@ for i in range(10): # change to if while not game_done:
     obs, rewards ,terminated, truncated, info = env.step(actions)
     dones = {k: terminated[k] | truncated[k] for k in terminated}
 
+    
+    # if i ==2:
+    #     print(obs.keys(), obs["player_0"]["units"]["position"][0].shape, obs["player_0"]["units_mask"][0].shape)
+    #     break
     rewards = {
                 "player_0": obs["player_0"]["team_points"][player_0.team_id],
                 "player_1": obs["player_1"]["team_points"][player_1.team_id]
