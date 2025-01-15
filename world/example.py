@@ -2,17 +2,18 @@ import jax.numpy as jnp
 
 horizont = 2
 mapshape = (5,5)
-actions = 6
 directions = jnp.array(
     [
-        [0, 0],  # Do nothing
-        [0, -1],  # Move up
-        [1, 0],  # Move right
-        [0, 1],  # Move down
-        [-1, 0],  # Move left
+        [0, 0],     # Don't move
+        [0, 0],     # SAP = Don't move
+        [0, -1],    # Move up
+        [1, 0],     # Move right
+        [0, 1],     # Move down
+        [-1, 0],    # Move left
     ],
     dtype=jnp.int16,
 )
+actions = len(directions)
 
 #Distribute probabilities
 def probDistribute(lastprobmap, future):
@@ -21,6 +22,7 @@ def probDistribute(lastprobmap, future):
     idx = jnp.where(lastprobmap > 0)
     vals = lastprobmap[idx]
 
+    #For calculating probability
     denominator = actions**(future+1)
 
     #Start with an empty space
