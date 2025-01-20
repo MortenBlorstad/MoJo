@@ -9,11 +9,35 @@ from nebula import Nebula
 
 class Universe():
 
-    def __init__(self, horizont = 3, seed = None):
+    def __init__(self, initialObservation, horizont = 3, seed = None):
+      
+        #The initial observation has this structure
+        #-------------------------------------------------------------------------------------------
+        #   {
+        #   "step":0,
+        #   "obs":...},                                 <------ A normal observation. Add to queue
+        #   "remainingOverageTime":600,                 <------ Useful
+        #   "player":"player_1",                        <------ We need this
+        #   "info":{
+        #       "env_cfg":{
+        #           "max_units":16,
+        #           "match_count_per_episode":5,
+        #           "max_steps_in_match":100,
+        #           "map_height":24,
+        #           "map_width":24,
+        #           "num_teams":2,
+        #           "unit_move_cost":5,                 <------ Useful
+        #           "unit_sap_cost":36,                 <------ Useful
+        #           "unit_sap_range":5,                 <------ Useful
+        #           "unit_sensor_range":4               <------ Useful
+        #           }
+        #       }
+        #   }
+        #
+        #   Example:
+        #       print(initialObservation['info']['env_cfg']['unit_sap_cost'])
+        #-------------------------------------------------------------------------------------------
 
-        #Initiate the gym
-        env = LuxAIS3GymEnv(numpy_output=False)     #Are we using torch? Supported? Maybe stick to jax...
-        obs, info = env.reset(seed=seed)            #Start with seed from dump        
 
         #Number of 'future universes' we predict
         self.horizont = horizont
@@ -21,9 +45,12 @@ class Universe():
         #History of observations
         self.obsQueueLen = 10   #Picked arbitrary. Must be long enough to entail nebula/asteroid movement
         self.obsQueue = []
+
+        #Add initial observation to queue
+        self.enqueue(initialObservation['obs'])
+
         # self.relic = Relic()
-        nebula = Nebula(self.horizont)
-    
+        nebula = Nebula(self.horizont)   
     
 
     #Add to observation queue
@@ -86,8 +113,11 @@ class Universe():
         #R relic.precict() (R_1,R_2, R_3)
         #A astroid.precict() (A_1,A_2, A_3)
 
+        print("Done predicicting future")
+
         #Return...
         #return jnp.stack((s1,s2,s3),axis=2)
+        
         
     #Step through all actions included in dump and assert that the resulting energy map matches the one we loaded from file
     def testuniverse(self, dumpfile):
@@ -124,61 +154,24 @@ if __name__ == "__main__":
     # #Just checking that everything is working as expected
     # u = Universe()
     # u.testuniverse('./../MoJo/world/seed54321.json')
+  
+    #Read a jsonfile (not really JSON: missing quotes, manually added)
+    def getObsDict(file):
+
+        #Get file content
+        with open(file, 'r') as file:
+            inpt = file.read() 
+        #Fix single quotes
+        inpt = inpt.replace("\'","\"")
+
+        return json.loads(inpt)   
+
+
+    firstObs = getObsDict('./../MoJo/world/sample_step_0_input.txt')
+    secondObs = getObsDict('./../MoJo/world/sample_step_input.txt')
 
     #Create a fixed seed universe
-    u = Universe(seed=12345)
-    # import numpy as np
+    u = Universe(firstObs, seed=12345)
 
-    # def getObs(path):
-
-    #     def from_json(state):
-    #         if isinstance(state, list):
-    #             return np.array(state)
-    #         elif isinstance(state, dict):
-    #             out = {}
-    #             for k in state:
-    #                 out[k] = from_json(state[k])
-    #             return out
-    #         else:
-    #             return state 
-
-    #     with open(path, 'r') as file:
-    #         content = file.read()
-    #     return from_json(content)
-
-        
-
-
-
-    # stp_0 = './../MoJo/world/sample_step_0_input.txt'
-    # stp_2 = './../MoJo/world/sample_step_input.txt'
-
-
-
-
-
-
-    #print(u.data['params'])
-    #print(u.env.state.energy_node_fns)
-
-
-    # from luxai_s3.state import (
-    #     ASTEROID_TILE,
-    #     ENERGY_NODE_FNS,
-    #     NEBULA_TILE,
-    #     EnvObs,
-    #     EnvState,
-    #     MapTile,
-    #     UnitState,
-    #     gen_state
-    # )
-
-
-    # #obs = getObs(stp_2)
-
-    # with open(stp_2, 'r') as file:
-    #     raw_state_dict = file.read()
-
-    # import flax
-
-    # flax.serialization.from_state_dict(obs, raw_state_dict)
+    #Show me the future
+    u.predict(secondObs)
