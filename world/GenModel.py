@@ -1,8 +1,10 @@
 from luxai_s3.wrappers import LuxAIS3GymEnv
 import jax.numpy as jnp
 import json
+from abc import ABC, abstractmethod
 
-class Universe:
+class Universe(ABC):
+
     def __init__(self, horizont = 3, seed = None):
 
         #Initiate the gym
@@ -16,6 +18,8 @@ class Universe:
         self.obsQueueLen = 10   #Picked arbitrary. Must be long enough to entail nebula/asteroid movement
         self.obsQueue = []
     
+    
+
     #Add to observation queue
     def enqueue(self, observation):
         self.obsQueue.append(observation)
