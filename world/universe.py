@@ -1,8 +1,9 @@
 from luxai_s3.wrappers import LuxAIS3GymEnv
 import jax.numpy as jnp
 import json
+from utils import getObsDict
+from obsqueue import ObservationQueue
 from abc import ABC, abstractmethod
-
 
 from nebula import Nebula
 
@@ -43,22 +44,20 @@ class Universe():
         self.horizont = horizont
 
         #History of observations
-        self.obsQueueLen = 10   #Picked arbitrary. Must be long enough to entail nebula/asteroid movement
-        self.obsQueue = []
-
+        self.obsQueue = ObservationQueue(10)
+        
         #Add initial observation to queue
-        self.enqueue(initialObservation['obs'])
+        self.obsQueue(initialObservation['obs'])
+
+        #Determine players
+        self.player = initialObservation['player']
+        self.opp_player = "player_1" if self.player == "player_0" else "player_0"
+        self.team_id = 0 if self.player == "player_0" else 1
+        self.opp_team_id = 1 if self.team_id == 0 else 0         
 
         # self.relic = Relic()
         self.nebula = Nebula(self.horizont)
     
-
-    #Add to observation queue
-    def enqueue(self, observation):
-        self.obsQueue.append(observation)
-        if(len(self.obsQueue) > self.obsQueueLen):
-            self.obsQueue.pop()
-
     def learnuniverse(self):
 
         #self.nebula.learn()
@@ -106,8 +105,8 @@ class Universe():
     #s_{t:t+h} | o_{t}
     def predict(self, observation):
 
-        #This will be needed later, when we actually predict stuff
-        self.enqueue(observation)
+        #Add observation to queue
+        self.obsQueue(observation['obs'])
 
         #Learn universe
         self.learnuniverse()
@@ -162,17 +161,6 @@ if __name__ == "__main__":
     # u = Universe()
     # u.testuniverse('./../MoJo/world/seed54321.json')
   
-    #Read a jsonfile (not really JSON: missing quotes, manually added)
-    def getObsDict(file):
-
-        #Get file content
-        with open(file, 'r') as file:
-            inpt = file.read() 
-        #Fix single quotes
-        inpt = inpt.replace("\'","\"")
-
-        return json.loads(inpt)   
-
     #Use the example observations from the provided kit
     firstObs = getObsDict('./../MoJo/world/sample_step_0_input.txt')
     secondObs = getObsDict('./../MoJo/world/sample_step_input.txt')
@@ -182,3 +170,4 @@ if __name__ == "__main__":
 
     #Test universe prediction
     u.predict(secondObs)
+
