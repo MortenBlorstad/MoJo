@@ -50,7 +50,7 @@ class Universe():
         self.enqueue(initialObservation['obs'])
 
         # self.relic = Relic()
-        nebula = Nebula(self.horizont)   
+        self.nebula = Nebula(self.horizont)
     
 
     #Add to observation queue
@@ -60,6 +60,9 @@ class Universe():
             self.obsQueue.pop()
 
     def learnuniverse(self):
+
+        #self.nebula.learn()
+
         #predict parameters here
         pass
         #relic.learn()    
@@ -113,6 +116,9 @@ class Universe():
         #R relic.precict() (R_1,R_2, R_3)
         #A astroid.precict() (A_1,A_2, A_3)
 
+        print("Nebula")
+        print(self.nebula.predict())
+        print('')
         print("Done predicicting future")
 
         #Return...
@@ -151,6 +157,7 @@ class Universe():
 
 
 if __name__ == "__main__":
+
     # #Just checking that everything is working as expected
     # u = Universe()
     # u.testuniverse('./../MoJo/world/seed54321.json')
@@ -166,12 +173,12 @@ if __name__ == "__main__":
 
         return json.loads(inpt)   
 
-
+    #Use the example observations from the provided kit
     firstObs = getObsDict('./../MoJo/world/sample_step_0_input.txt')
     secondObs = getObsDict('./../MoJo/world/sample_step_input.txt')
 
     #Create a fixed seed universe
     u = Universe(firstObs, seed=12345)
 
-    #Show me the future
+    #Test universe prediction
     u.predict(secondObs)
