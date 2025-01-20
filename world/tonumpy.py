@@ -10,7 +10,7 @@ def loadworld(file):
         return pickle.load(f)    
 
 w = loadworld(infile)
-
+print(w)
 
 @dataclass
 class MapTile:
@@ -55,21 +55,21 @@ with open(outfile, 'wb') as f:
 
 print("Saved world")
 
-#print("relic_nodes")
-#print(w.relic_nodes)
+print("relic_nodes")
+print(w.relic_nodes)
 #print("")
 
-print("relic_node_configs")
-print(w.relic_node_configs)
-print("")
+#print("relic_node_configs")
+#print(w.relic_node_configs)
+#print("")
 
 #print("relic_nodes_mask")
 #print(w.relic_nodes_mask)
 #print("")
 
-print("relic_nodes_map_weights")
-print(w.relic_nodes_map_weights)
-print("")
+#print("relic_nodes_map_weights")
+#print(w.relic_nodes_map_weights)
+#print("")
 
 #print(w.map_features)
 #a = np.array(w.map_features)
