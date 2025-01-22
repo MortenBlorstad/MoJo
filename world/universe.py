@@ -1,7 +1,7 @@
 from luxai_s3.wrappers import LuxAIS3GymEnv
 import jax.numpy as jnp
 import json
-from utils import getObsDict
+from utils import getObservation
 from obsqueue import ObservationQueue
 from abc import ABC, abstractmethod
 
@@ -10,7 +10,7 @@ from nebula import Nebula
 
 class Universe():
 
-    def __init__(self, initialObservation, horizont = 3, seed = None):
+    def __init__(self, player, observation, configuration, horizont = 3, seed = None):
       
         #The initial observation has this structure
         #-------------------------------------------------------------------------------------------
@@ -35,10 +35,11 @@ class Universe():
         #       }
         #   }
         #
-        #   Example:
-        #       print(initialObservation['info']['env_cfg']['unit_sap_cost'])
         #-------------------------------------------------------------------------------------------
 
+
+        #The observable parameters
+        self.configuration = configuration
 
         #Number of 'future universes' we predict
         self.horizont = horizont
@@ -47,10 +48,10 @@ class Universe():
         self.obsQueue = ObservationQueue(10)
         
         #Add initial observation to queue
-        self.obsQueue(initialObservation['obs'])
+        self.obsQueue(observation)
 
         #Determine players
-        self.player = initialObservation['player']
+        self.player = player
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         self.team_id = 0 if self.player == "player_0" else 1
         self.opp_team_id = 1 if self.team_id == 0 else 0         
@@ -103,22 +104,29 @@ class Universe():
 
 
     #s_{t:t+h} | o_{t}
-    def predict(self, observation):
+    def predict(self, observation, timeleft):
+
+        print("Remaining time (Overage) is", timeleft)
 
         #Add observation to queue
-        self.obsQueue(observation['obs'])
+        self.obsQueue(observation)
 
         #Learn universe
-        self.learnuniverse()
+        self.learnuniverse()      
+
+        el =  self.obsQueue.LastN(['units','position',0], 1)        
+
+        print(type(el))
+        print(el)
 
         #For now, let's use the Env
         #R relic.precict() (R_1,R_2, R_3)
         #A astroid.precict() (A_1,A_2, A_3)
 
-        print("Nebula")
-        print(self.nebula.predict())
-        print('')
-        print("Done predicicting future")
+        #print("Nebula")
+        #print(self.nebula.predict())
+        #print('')
+        #print("Done predicicting future")
 
         #Return...
         #return jnp.stack((s1,s2,s3),axis=2)
@@ -159,15 +167,19 @@ if __name__ == "__main__":
 
     # #Just checking that everything is working as expected
     # u = Universe()
-    # u.testuniverse('./../MoJo/world/seed54321.json')
-  
-    #Use the example observations from the provided kit
-    firstObs = getObsDict('./../MoJo/world/sample_step_0_input.txt')
-    secondObs = getObsDict('./../MoJo/world/sample_step_input.txt')
+    # u.testuniverse('./../MoJo/world/seed54321.json')  
+
+    #Fix a seed for testing. 
+    seed = 12345
+
+    #Get initial observation
+    step, player, obs, cfg, timeleft = getObservation(seed,0)
 
     #Create a fixed seed universe
-    u = Universe(firstObs, seed=12345)
-
+    u = Universe(player,obs,cfg,horizont=3, seed=seed)
+    
+    #Get another observation
+    _, _, obs, _, timeleft = getObservation(seed,1)
+    
     #Test universe prediction
-    u.predict(secondObs)
-
+    u.predict(obs, timeleft)

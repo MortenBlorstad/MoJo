@@ -24,11 +24,23 @@ def agent_fn(observation, configurations):
     remainingOverageTime = observation.remainingOverageTime
     if step == 0:
         agent_dict[player] = Agent(player, configurations["env_cfg"])
+        if(player == 'player_0'):
+            print("Here:", file=sys.stderr)
+            print(type(configurations["env_cfg"]), file=sys.stderr)
+            print("", file=sys.stderr)
+            print(configurations["env_cfg"], file=sys.stderr)
+            print("", file=sys.stderr)
     agent = agent_dict[player]
     actions = agent.act(step, from_json(obs), remainingOverageTime)
     return dict(action=actions.tolist())
 if __name__ == "__main__":
     
+    def dumpfile(seed,obsNo,obs):
+        path = "seed_{seed}_obs_{obs}".format(seed = seed, obs = obsNo)
+        f = open(path, "w")
+        f.write(obs)
+        f.close()
+
     def read_input():
         """
         Reads input from stdin
@@ -48,7 +60,11 @@ if __name__ == "__main__":
         if i == 0:
             env_cfg = raw_input["info"]["env_cfg"]
             player_id = raw_input["player"]
+        #if i < 75:
+        #    if(player_id == 'player_0'):
+        #        dumpfile(12345,i,inputs)
         i += 1
+
         actions = agent_fn(observation, dict(env_cfg=env_cfg))
         # send actions to engine
         print(json.dumps(actions))
