@@ -4,6 +4,8 @@ import json
 from utils import getObsDict
 from obsqueue import ObservationQueue
 from abc import ABC, abstractmethod
+import flax
+import flax.serialization
 
 from nebula import Nebula
 
@@ -116,6 +118,7 @@ class Universe():
         #A astroid.precict() (A_1,A_2, A_3)
 
         print("Nebula")
+        self.nebula.nebula_tile_drift_speed = -0.5
         print(self.nebula.predict())
         print('')
         print("Done predicicting future")
@@ -132,6 +135,8 @@ class Universe():
             # Open and read the JSON file        
             with open(dump, 'r') as file:
                 return json.load(file)
+        
+        
             
         #Get actual actions taken at time step t as (jax) dictionary
         def getjaxtions(t):
@@ -150,24 +155,32 @@ class Universe():
         for t in range(len(data['actions'])):
             env.step(getjaxtions(t))
 
-
+        
+        #print(flax.serialization.to_state_dict(env.state))
+        from State import State
+        state = State(flax.serialization.to_state_dict(env.state), "player_1")
+        print(state.nebulas)
         assert jnp.all(env.state.map_features.energy == jnp.array(data['observations'][-1]['map_features']['energy']))
         print("Stepped through everything....")
 
 
 if __name__ == "__main__":
-
-    # #Just checking that everything is working as expected
-    # u = Universe()
-    # u.testuniverse('./../MoJo/world/seed54321.json')
+    
+    
   
     #Use the example observations from the provided kit
     firstObs = getObsDict('./../MoJo/world/sample_step_0_input.txt')
     secondObs = getObsDict('./../MoJo/world/sample_step_input.txt')
 
+    # #Just checking that everything is working as expected
+    u = Universe(firstObs, seed=12345)
+    u.testuniverse('./../MoJo/world/seed54321.json')
+
+    #state = State(secondObs["obs"], "player_1")
     #Create a fixed seed universe
     u = Universe(firstObs, seed=12345)
 
+    # print(secondObs)
     #Test universe prediction
-    u.predict(secondObs)
+    #u.predict(secondObs)
 
