@@ -6,6 +6,7 @@ from obsqueue import ObservationQueue
 from abc import ABC, abstractmethod
 
 from nebula import Nebula
+from unitpos import Unitpos
 
 
 class Universe():
@@ -58,10 +59,12 @@ class Universe():
 
         # self.relic = Relic()
         self.nebula = Nebula(self.horizont)
+        self.p1pos = Unitpos(self.horizont)
     
     def learnuniverse(self):
 
         #self.nebula.learn()
+        self.p1pos.learn(self.obsQueue.LastN(['units','position',0], 1))
 
         #predict parameters here
         pass
@@ -112,12 +115,9 @@ class Universe():
         self.obsQueue(observation)
 
         #Learn universe
-        self.learnuniverse()      
+        self.learnuniverse()
 
-        el =  self.obsQueue.LastN(['units','position',0], 1)        
-
-        print(type(el))
-        print(el)
+        self.p1pos.predict()
 
         #For now, let's use the Env
         #R relic.precict() (R_1,R_2, R_3)
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     # u.testuniverse('./../MoJo/world/seed54321.json')  
 
     #Fix a seed for testing. 
-    seed = 12345
+    seed = 223344
 
     #Get initial observation
     step, player, obs, cfg, timeleft = getObservation(seed,0)
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     u = Universe(player,obs,cfg,horizont=3, seed=seed)
     
     #Get another observation
-    _, _, obs, _, timeleft = getObservation(seed,1)
+    _, _, obs, _, timeleft = getObservation(seed,27)
     
     #Test universe prediction
     u.predict(obs, timeleft)
