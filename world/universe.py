@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 import flax
 import flax.serialization
 from State import State
+import socket
 
 from nebula import Nebula
 from unitpos import Unitpos
@@ -183,7 +184,27 @@ class Universe():
         print("Stepped through everything....")
 
 
-if __name__ == "__main__":
+#Test function for Jørgen
+def jorgen():
+
+    print("Running Jørgens tests")
+
+    #Fix a seed for testing. 
+    seed = 223344
+
+    #Get initial observation
+    step, player, obs, cfg, timeleft = getObservation(seed,0)
+    
+    #Create a fixed seed universe
+    u = Universe(player,obs,cfg,horizont=3, seed=seed)       
+    
+    # #Test universe prediction
+    u.predict(obs, timeleft)
+
+#Test function for Morten
+def morten():
+
+    print("Running Mortens tests")
 
     # #Just checking that everything is working as expected
     # u = Universe()
@@ -210,3 +231,12 @@ if __name__ == "__main__":
     
     # #Test universe prediction
     # u.predict(obs, timeleft)
+
+
+if __name__ == "__main__":
+
+    #Branch out to avoid any more GIT HASSLE
+    if socket.gethostname() == "MSI":
+        jorgen()
+    else:
+        morten()
