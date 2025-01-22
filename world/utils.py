@@ -40,7 +40,7 @@ def getObservation(seed,step):
 
     config = {}
     if(step == 0):
-        observation.info['env_cfg']
+        config = observation.info['env_cfg']
 
     #Match parameters in Agent:main.py. We don't need all of this
     return observation.step, observation.player, from_json(observation.obs), config, observation.remainingOverageTime
