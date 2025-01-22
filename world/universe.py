@@ -159,19 +159,14 @@ class Universe():
         #Initiate the gym
         env = LuxAIS3GymEnv(numpy_output=True)                  #Are we using torch? Supported? Maybe stick to jax...
         #obs, info = env.reset(seed=data['metadata']['seed'])    #Start with seed from dump
-        obs, info = env.reset(seed=seed)
-        import numpy as np
-        actions = {
-            "player_0":np.zeros((16, 3), dtype=int),
-            "player_1":np.zeros((16, 3), dtype=int)
-            }
+        step, player, obs, cfg, timeleft = getObservation(seed,0)
         for t in range(2):
-            env.step(actions)
+            step, player, obs, cfg, timeleft = getObservation(seed,0)
 
         
         #print(flax.serialization.to_state_dict(env.state))
         from State import State
-        state = State(flax.serialization.to_state_dict(env.state), "player_0")
+        state = State(obs, "player_0")
         print("player_units_count")
         print(state.player_units_count)
 
@@ -204,6 +199,7 @@ if __name__ == "__main__":
     
     #Get another observation
     # _, _, obs, _, timeleft = getObservation(seed,27)
+    # print(obs)
     
     # #Test universe prediction
     # u.predict(obs, timeleft)
