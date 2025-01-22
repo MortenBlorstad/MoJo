@@ -13,7 +13,7 @@ class Nebula(base_component):
         self.nebula_tile_drift_speed = np.mean(self.env_params_ranges["nebula_tile_drift_speed"],dtype=np.float16) # 0
         self.steps = 0
 
-    def _move_astroid_or_nebula(self, map_object,step):
+    def _move_astroid_or_nebula(self, map_object):
         """
             Shift objects around in space
             Move the nebula tiles in state.map_features.tile_types up by 1 and to the right by 1
@@ -28,29 +28,49 @@ class Nebula(base_component):
         ),
         axis=(0, 1),  # Apply the shifts to both row (0) and column (1) axes
         )
+        # old
+        # # Conditionally update the map based on drift speed and step count
+        # new_map = jnp.where(
+        #     step * self.nebula_tile_drift_speed % 1 == 0,  # Check if it's time to apply the shift
+        #     new_map,   # Apply the shifted map if condition is met (step interval reached)
+        #     map_object # Otherwise, keep the original map unchanged
+        # )
 
+        # new
         # Conditionally update the map based on drift speed and step count
         new_map = jnp.where(
-            step * self.nebula_tile_drift_speed % 1 == 0,  # Check if it's time to apply the shift
-            new_map,   # Apply the shifted map if condition is met (step interval reached)
-            map_object # Otherwise, keep the original map unchanged
+            (self.steps - 1) * abs(self.nebula_tile_drift_speed) % 1 > self.steps * abs(self.nebula_tile_drift_speed) % 1, # Check if it's time to apply the shift
+            new_map, # Apply the shifted map if condition is met (step interval reached)
+            map_object, # Otherwise, keep the original map unchanged
         )
         return new_map
 
-    def learn(self, obs,current_step):
+    def learn(self, obs):
         """
             check whether nebula_tile_drift_speed in one of the following values {-0.5: move up-right every other step,-0.25: move up-right every 4th step,0.25: move down-left every 4th step,0.5 move down-left every second step}
             obs: (5x24,24) four time steps of nebula positions, (current_step-5, current_step-3, current_step-2, current_step-1, current_step) current time step + 4 previous
             current_step: current step number
         """
-        possible_drift_speeds = {
-            -0.5: (-1, 1),   # Move up-right every other step
-            -0.25: (-1, 1),  # Move up-right every 4th step
-            0.25: (1, -1),   # Move down-left every 4th step
-            0.5: (1, -1)     # Move down-left every second step
-        }
+        # old values
+        # possible_drift_speeds = {
+        #     -0.5: (-1, 1),   # Move up-right every other step
+        #     -0.25: (-1, 1),  # Move up-right every 4th step
+        #     0.25: (1, -1),   # Move down-left every 4th step
+        #     0.5: (1, -1)     # Move down-left every second step
+        # }
 
-        odd = int(current_step%2==1)
+        possible_drift_speeds = {
+            -0.15: (-1, 1),   # Move up-right every 7th step
+            -0.1: (-1, 1),  # Move up-right every 10th step
+            -0.05: (-1, 1),  # Move up-right every 20th step
+            -0.025: (-1, 1),  # Move up-right every 40th step
+            0.025: (1, -1),   # Move down-left every 40th step
+            0.05: (1, -1),     # Move down-left every 20th step
+            0.1: (1, -1),     # Move down-left every 10th step
+            0.15: (1, -1),     # Move down-left every 7th step
+        }
+        
+        odd = int(self.steps%2==1)
         second_check_ind = 6-1-odd
         first_check_ind = second_check_ind-2
         
@@ -117,7 +137,7 @@ if __name__ == "__main__":
             state = move_astroid_or_nebula(state,step,nebula_tile_drift_speed)
             obs = obs.at[step,:,:].set(state)
             nebula.steps+=1
-        nebula.learn(obs,step)
+        nebula.learn(obs)
 
         # Use jnp.allclose to handle potential floating-point inaccuracies
         assert jnp.allclose(nebula.nebula_tile_drift_speed, nebula_tile_drift_speed, atol=1e-6), \
