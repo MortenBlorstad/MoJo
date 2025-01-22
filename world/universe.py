@@ -1,18 +1,19 @@
 from luxai_s3.wrappers import LuxAIS3GymEnv
 import jax.numpy as jnp
 import json
-from utils import getObsDict
+from utils import getObservation, getObsNamespace,getPath,from_json
 from obsqueue import ObservationQueue
 from abc import ABC, abstractmethod
 import flax
 import flax.serialization
 
 from nebula import Nebula
+from unitpos import Unitpos
 
 
 class Universe():
 
-    def __init__(self, initialObservation, horizont = 3, seed = None):
+    def __init__(self, player, observation, configuration, horizont = 3, seed = None):
       
         #The initial observation has this structure
         #-------------------------------------------------------------------------------------------
@@ -37,10 +38,11 @@ class Universe():
         #       }
         #   }
         #
-        #   Example:
-        #       print(initialObservation['info']['env_cfg']['unit_sap_cost'])
         #-------------------------------------------------------------------------------------------
 
+
+        #The observable parameters
+        self.configuration = configuration
 
         #Number of 'future universes' we predict
         self.horizont = horizont
@@ -49,20 +51,22 @@ class Universe():
         self.obsQueue = ObservationQueue(10)
         
         #Add initial observation to queue
-        self.obsQueue(initialObservation['obs'])
+        self.obsQueue(observation)
 
         #Determine players
-        self.player = initialObservation['player']
+        self.player = player
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         self.team_id = 0 if self.player == "player_0" else 1
         self.opp_team_id = 1 if self.team_id == 0 else 0         
 
         # self.relic = Relic()
         self.nebula = Nebula(self.horizont)
+        self.p1pos = Unitpos(self.horizont)
     
     def learnuniverse(self):
 
         #self.nebula.learn()
+        self.p1pos.learn(self.obsQueue.LastN(['units','position',0], 1))
 
         #predict parameters here
         pass
@@ -105,13 +109,17 @@ class Universe():
 
 
     #s_{t:t+h} | o_{t}
-    def predict(self, observation):
+    def predict(self, observation, timeleft):
+
+        print("Remaining time (Overage) is", timeleft)
 
         #Add observation to queue
-        self.obsQueue(observation['obs'])
+        self.obsQueue(observation)
 
         #Learn universe
         self.learnuniverse()
+
+        self.p1pos.predict()
 
         #For now, let's use the Env
         #R relic.precict() (R_1,R_2, R_3)
@@ -128,59 +136,74 @@ class Universe():
         
         
     #Step through all actions included in dump and assert that the resulting energy map matches the one we loaded from file
-    def testuniverse(self, dumpfile):
+    def testuniverse(self, seed):
 
-        #Get data from dumpfile
-        def loaddata(dump):
-            # Open and read the JSON file        
-            with open(dump, 'r') as file:
-                return json.load(file)
+        # #Get data from dumpfile
+        # def loaddata(dump):
+        #     # Open and read the JSON file        
+        #     with open(dump, 'r') as file:
+        #         return json.load(file)
         
         
             
         #Get actual actions taken at time step t as (jax) dictionary
-        def getjaxtions(t):
-            return {
-            "player_0": jnp.array(data['actions'][t]['player_0']),
-            "player_1": jnp.array(data['actions'][t]['player_1'])
-            }
+        # def getjaxtions(t):
+        #     return {
+        #     "player_0": jnp.array(data['actions'][t]['player_0']),
+        #     "player_1": jnp.array(data['actions'][t]['player_1'])
+        #     }
         
         #Load data 
-        data = loaddata(dumpfile)
+        # data = loaddata(dumpfile)
         
         #Initiate the gym
         env = LuxAIS3GymEnv(numpy_output=True)                  #Are we using torch? Supported? Maybe stick to jax...
-        obs, info = env.reset(seed=data['metadata']['seed'])    #Start with seed from dump
-
-        for t in range(len(data['actions'])):
-            env.step(getjaxtions(t))
+        #obs, info = env.reset(seed=data['metadata']['seed'])    #Start with seed from dump
+        obs, info = env.reset(seed=seed)
+        import numpy as np
+        actions = {
+            "player_0":np.zeros((16, 3), dtype=int),
+            "player_1":np.zeros((16, 3), dtype=int)
+            }
+        for t in range(2):
+            env.step(actions)
 
         
         #print(flax.serialization.to_state_dict(env.state))
         from State import State
-        state = State(flax.serialization.to_state_dict(env.state), "player_1")
+        state = State(flax.serialization.to_state_dict(env.state), "player_0")
+        print("player_units_count")
+        print(state.player_units_count)
+
+        print("\n nebulas")
         print(state.nebulas)
-        assert jnp.all(env.state.map_features.energy == jnp.array(data['observations'][-1]['map_features']['energy']))
+        #assert jnp.all(env.state.map_features.energy == jnp.array(data['observations'][-1]['map_features']['energy']))
         print("Stepped through everything....")
 
 
 if __name__ == "__main__":
-    
-    
-  
-    #Use the example observations from the provided kit
-    firstObs = getObsDict('./../MoJo/world/sample_step_0_input.txt')
-    secondObs = getObsDict('./../MoJo/world/sample_step_input.txt')
 
     # #Just checking that everything is working as expected
-    u = Universe(firstObs, seed=12345)
-    u.testuniverse('./../MoJo/world/seed54321.json')
+    # u = Universe()
+    # u.testuniverse('./../MoJo/world/seed54321.json')  
+
+    #Fix a seed for testing. 
+    seed = 223344
+
+    #Get initial observation
+    step, player, obs, cfg, timeleft = getObservation(seed,0)
+
+    # # #Just checking that everything is working as expected
+    firstObs = from_json(getPath(seed,0))
+    u = Universe(player,obs,cfg,horizont=3, seed=seed)
+    u.testuniverse(seed)
 
     #state = State(secondObs["obs"], "player_1")
     #Create a fixed seed universe
-    u = Universe(firstObs, seed=12345)
-
-    # print(secondObs)
-    #Test universe prediction
-    #u.predict(secondObs)
-
+    
+    
+    #Get another observation
+    # _, _, obs, _, timeleft = getObservation(seed,27)
+    
+    # #Test universe prediction
+    # u.predict(obs, timeleft)
