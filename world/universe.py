@@ -198,8 +198,12 @@ def jorgen():
     #Create a fixed seed universe
     u = Universe(player,obs,cfg,horizont=3, seed=seed)       
     
+    #Get another observation
+    _, _, obs, _, timeleft = getObservation(seed,27)
+
     # #Test universe prediction
     u.predict(obs, timeleft)
+
 
 #Test function for Morten
 def morten():
