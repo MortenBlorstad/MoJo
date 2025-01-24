@@ -14,9 +14,9 @@ class Nebula(base_component):
         self.steps = 0
         self.change_steps = [7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100]
         self.change_steps_set = set(self.change_steps)
-        self.observations = {} #{step: obs}
         self.previous_observed_change =0
         self.change_rate = 0
+        self.prev_step = 0
 
     def _move_astroid_or_nebula(self, map_object):
         """
@@ -60,16 +60,74 @@ class Nebula(base_component):
         if self.change_rate ==0:
             self.change_rate = new_rate
         else:
-            self.change_rate = 0.7*self.change_rate + 0.3*new_rate
+            self.change_rate = np.round(0.7*self.change_rate + 0.3*new_rate,4)
 
-   
+    def closest_change_rate(self,change_rate, possible_rates=[0.15, 0.1, 0.05, 0.025]):
+        """
+        Selects the closest value from the list of possible change rates to the given change_rate.
+        
+        Args:
+            change_rate (float): The estimated change rate.
+            possible_rates (list of float): The predefined list of possible change rates.
+        
+        Returns:
+            float: The closest change rate from the list.
+        """
+        return min(possible_rates, key=lambda x: abs(x - change_rate))
+
+    def detect_obstacle_entry(self,state, next_state):
+        """
+        Detects obstacles entering the grid from the top row or last column.
+
+        Args:
+            state (jnp.ndarray): The current grid state (before the update).
+            next_state (jnp.ndarray): The next grid state (after the update).
+
+        Returns:
+            dict: Contains boolean values indicating if obstacles entered from top row or last column.
+        """
+        # Calculate the difference between next_state and state
+
+
+        # Detect entries from the top row (row index 0) where it changed from 0 to 1
+        last_col_entries = jnp.where((state[-1, :] == 0) & (next_state[-1, :] == 1))[0]
+        
+        # Detect entries from the last column (column index -1) where it changed from 0 to 1
+        top_row_entries = jnp.where((state[:, 0] == 0) & (next_state[:, 0] == 1))[0]
+        return top_row_entries.size > 0 or last_col_entries.size > 0
+    
+    def detect_obstacle_leaving(self,state, next_state):
+        """
+        Detects obstacles entering the grid from the top row or last column.
+
+        Args:
+            state (jnp.ndarray): The current grid state (before the update).
+            next_state (jnp.ndarray): The next grid state (after the update).
+
+        Returns:
+            dict: Contains boolean values indicating if obstacles entered from top row or last column.
+        """
+        # Calculate the difference between next_state and state
+
+
+        # Detect entries from the top row (row index 0) where it changed from 0 to 1
+        first_col_entries = jnp.where((state[0, :] == -1) & (next_state[-1, :] == 0))[0]
+        
+        # Detect entries from the last column (column index -1) where it changed from 0 to 1
+        last_row_entries = jnp.where((state[:, -1] == -1) & (next_state[:, -1] == 0))[0]
+        return last_row_entries.size > 0 or first_col_entries.size > 0
+        
+    
+
+
+
     def learn(self, observation, observable, current_step):
         """
             check whether nebula_tile_drift_speed in one of the following values {-0.5: move up-right every other step,-0.25: move up-right every 4th step,0.25: move down-left every 4th step,0.5 move down-left every second step}
             obs: (5x24,24) four time steps of nebula positions, (current_step-5, current_step-3, current_step-2, current_step-1, current_step) current time step + 4 previous
             current_step: current step number
         """
-       
+        assert observation.shape == (24,24) and observable.shape == (24,24)
         possible_drift_speeds = {
             -0.15: (-1, 1),   # Move up-right every 7th step
             -0.1: (-1, 1),  # Move up-right every 10th step
@@ -80,48 +138,104 @@ class Nebula(base_component):
             0.1: (1, -1),     # Move down-left every 10th step
             0.15: (1, -1),     # Move down-left every 7th step
         }
-        if current_step ==0:
-            self.observations[current_step] = (observation,observable)
+        if not self.should_check(current_step) or current_step ==0:
+            self.prev_observation = observation
+            self.prev_observable = observable
+            self.prev_step = current_step
             return
 
-        if not self.should_check(current_step):
-            return 
-        
-        
-        
-        for step,(prev_obs,prev_observable) in sorted(self.observations.items(), reverse=False):
-            assert observation.shape == (24,24) and prev_obs.shape == (24,24) and prev_observable.shape == (24,24)
-            if self.previous_observed_change == current_step:
-                continue
-            observation_masked = observation.at[prev_observable==0].set(0)
-            
-            delta = observation_masked- prev_obs
-            shift_up_right = jnp.pad(delta[:-1, 1:], ((1, 0), (0, 1)), constant_values=0)  # (-1, 1)
-            shift_down_left = jnp.pad(delta[1:, :-1], ((0, 1), (1, 0)), constant_values=0)  # (1, -1)
 
-            # Find positions where -1 exists in diagonal directions
-            adjacent_neg_ones = (shift_up_right == -1) | (shift_down_left == -1)
-            delta = jnp.where(delta == -1, -1, jnp.where((delta == 1) & adjacent_neg_ones, 1, 0))
-            
-            if not np.any(delta == -1):
-                print(step,current_step, "no change detected")
-                continue
-            
-            
+
+        observation_masked = observation.at[self.prev_observable==0].set(0)
+
+        
+
+        delta = observation_masked - self.prev_observation
+        delta = delta.at[observation_masked==1].set(1)
+        shift_up_right = jnp.pad(delta[:-1, 1:], ((1, 0), (0, 1)), constant_values=0)  # (-1, 1)
+        shift_down_left = jnp.pad(delta[1:, :-1], ((0, 1), (1, 0)), constant_values=0)  # (1, -1)
+        shift_down_right = jnp.pad(delta[1:, 1:], ((0, 1), (0, 1)), constant_values=0)  # (1, 1)
+        shift_up_left = jnp.pad(delta[:-1, :-1], ((1, 0), (1, 0)), constant_values=0)  # (-1, -1)
+        adjacent_neg_ones = (shift_up_right == -1) | (shift_down_left == -1) | (shift_down_right == -1) | (shift_up_left == -1)
+
+        adjacent_neg_ones = (shift_up_right == -1) | (shift_down_left == -1) | (shift_down_right == -1) | (shift_up_left == -1)
+        adjacent_ones = (shift_up_right == 1) | (shift_down_left == 1) | (shift_down_right == 1) | (shift_up_left == 1)
+
+        # Find positions where -1 exists in diagonal directions of 1
+        delta = jnp.where(delta == -1, -1, jnp.where((delta == 1) & adjacent_neg_ones, 1, 0))
+        #Find positions where 1 exists in diagonal directions of -1
+        delta = jnp.where(delta == 1, 1, jnp.where((delta == -1) & adjacent_ones, -1, 0)) #jnp.where((delta == -1) & adjacent_ones, -1, delta)
+
+        change = self.detect_obstacle_entry(self.prev_observation,observation_masked)
+        change = change or self.detect_obstacle_leaving(self.prev_observation,observation_masked)
+
+        if not np.any(delta == -1):
+            print(current_step, "no change detected")
+        else:
             self.update_change_rate(1/(current_step- self.previous_observed_change))
             self.previous_observed_change = current_step
-             
+            # print(current_step, delta.T)   
+            # print(current_step, observation_masked.T) 
+            # print(self.prev_step, self.prev_observation.T) 
             moved_from_indices = jnp.array(jnp.where(delta==-1))
             moved_to_indices = jnp.array(jnp.where(delta==1))
-            direction = (moved_from_indices - moved_to_indices)
-            print(step, current_step, direction, self.change_rate)
+            directions = (moved_from_indices - moved_to_indices)
+            #print(self.prev_step,current_step, direction, self.change_rate)
+        
+            expected_direction_1 = jnp.array([[1], [-1]])  # Down-left movement
+            expected_direction_2 = jnp.array([[-1], [1]])  # Up-right movement
+                # Check if all movements follow the same pattern
+
             
-            # print(prev_obs)
-            # print(observation)
-            print(delta)
+            if jnp.all(directions == expected_direction_1):
+                direction = -1
+            elif jnp.all(directions == expected_direction_2):
+                direction = 1
+            else:
+                raise Exception("Mixed movement or no consistent pattern")
+        
+            self.nebula_tile_drift_speed = direction*self.closest_change_rate(self.change_rate)
+            print(current_step, self.nebula_tile_drift_speed,direction*self.change_rate)    
+            
+
+        self.prev_observation = observation
+        self.prev_observable = observable
+        self.prev_step = current_step
+        
+
+        # assert observation.shape == (24,24) and prev_obs.shape == (24,24) and prev_observable.shape == (24,24)
+        # if self.previous_observed_change == current_step:
+       
+        # observation_masked = observation.at[prev_observable==0].set(0)
+        
+        # delta = observation_masked- prev_obs
+        # shift_up_right = jnp.pad(delta[:-1, 1:], ((1, 0), (0, 1)), constant_values=0)  # (-1, 1)
+        # shift_down_left = jnp.pad(delta[1:, :-1], ((0, 1), (1, 0)), constant_values=0)  # (1, -1)
+
+        # # Find positions where -1 exists in diagonal directions
+        # adjacent_neg_ones = (shift_up_right == -1) | (shift_down_left == -1)
+        # delta = jnp.where(delta == -1, -1, jnp.where((delta == 1) & adjacent_neg_ones, 1, 0))
+        
+        # if not np.any(delta == -1):
+        #     print(current_step, "no change detected")
+      
+        
+        
+        # self.update_change_rate(1/(current_step- self.previous_observed_change))
+        # self.previous_observed_change = current_step
+            
+        # moved_from_indices = jnp.array(jnp.where(delta==-1))
+        # moved_to_indices = jnp.array(jnp.where(delta==1))
+        # direction = (moved_from_indices - moved_to_indices)
+        # print(step, current_step, direction, self.change_rate)
+        
+        # print(prev_obs)
+        # print(observation)
+        
 
         
-        self.observations[current_step] = (observation, observable)
+        self.prev_observation = observation
+        self.prev_observable = observable
         #[7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100]
 
         # delta = obs - self.previous
