@@ -170,17 +170,17 @@ def morten():
     step, player, obs, cfg, timeleft = getObservation(seed,0)
     print(player)
     nebula = Nebula(horizon=3)
-    observations = jnp.zeros((20,24,24))
-    for t in [1,11,21,41]:#range(1,22):
+    #observations = jnp.zeros((20,24,24))
+    for t in range(1,42):
         step, player, obs, cfg, timeleft = getObservation(seed,t)
         state = State(obs, "player_0")
         nebulas = jnp.array(state.nebulas.copy())
-   
         observable = jnp.array(state.observeable_tiles.copy())
         #print(t, player,"\n", nebulas, "\n\n" )
-        print("\n", t)
+        
         nebula.learn(nebulas,observable, t-1)
-        observations = observations.at[t-1].set(nebulas)
+        
+        #observations = observations.at[t-1].set(nebulas)
     
     # print(observations[0])
     # print(observations[1])
