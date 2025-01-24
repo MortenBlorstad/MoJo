@@ -6,14 +6,17 @@ import numpy as np
 
 class Nebula(base_component):
 
-    def __init__(self, horizon, first_obs):
+    def __init__(self, horizon):
         super().__init__()
         self.horizon = horizon
         self.map = jnp.zeros((1+horizon,24,24))
         self.nebula_tile_drift_speed = np.mean(self.env_params_ranges["nebula_tile_drift_speed"],dtype=np.float16) # 0
         self.steps = 0
-        self.change_steps = set([7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100])
-        self.previous = first_obs
+        self.change_steps = [7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100]
+        self.change_steps_set = set(self.change_steps)
+        self.observations = {} #{step: obs}
+        self.previous_observed_change =0
+        self.change_rate = 0
 
     def _move_astroid_or_nebula(self, map_object):
         """
@@ -47,15 +50,20 @@ class Nebula(base_component):
         )
         return new_map
 
-    def round_down_to_nearest_100(self,num):
-        return (num // 100) * 100
+    def round_down_to_nearest_100(self,step):
+        return (step // 100) * 100
     
-    def should_check(self,num):
-        return (num - self.round_down_to_nearest_100(num)) in self.change_steps
+    def should_check(self,step):
+        return (step - self.round_down_to_nearest_100(step)) in self.change_steps_set
 
+    def update_change_rate(self,new_rate):
+        if self.change_rate ==0:
+            self.change_rate = new_rate
+        else:
+            self.change_rate = 0.7*self.change_rate + 0.3*new_rate
 
    
-    def learn(self, obs,observable, current_step):
+    def learn(self, observation, observable, current_step):
         """
             check whether nebula_tile_drift_speed in one of the following values {-0.5: move up-right every other step,-0.25: move up-right every 4th step,0.25: move down-left every 4th step,0.5 move down-left every second step}
             obs: (5x24,24) four time steps of nebula positions, (current_step-5, current_step-3, current_step-2, current_step-1, current_step) current time step + 4 previous
@@ -72,16 +80,56 @@ class Nebula(base_component):
             0.1: (1, -1),     # Move down-left every 10th step
             0.15: (1, -1),     # Move down-left every 7th step
         }
+        if current_step ==0:
+            self.observations[current_step] = (observation,observable)
+            return
 
         if not self.should_check(current_step):
             return 
         
-        delta = obs - self.previous
+        
+        
+        for step,(prev_obs,prev_observable) in sorted(self.observations.items(), reverse=False):
+            assert observation.shape == (24,24) and prev_obs.shape == (24,24) and prev_observable.shape == (24,24)
+            if self.previous_observed_change == current_step:
+                continue
+            observation_masked = observation.at[prev_observable==0].set(0)
+            
+            delta = observation_masked- prev_obs
+            shift_up_right = jnp.pad(delta[:-1, 1:], ((1, 0), (0, 1)), constant_values=0)  # (-1, 1)
+            shift_down_left = jnp.pad(delta[1:, :-1], ((0, 1), (1, 0)), constant_values=0)  # (1, -1)
 
-        moved_from_indices = jnp.array(jnp.where(delta==-1))
-        moved_to_indices = jnp.array(jnp.where(delta==1))
+            # Find positions where -1 exists in diagonal directions
+            adjacent_neg_ones = (shift_up_right == -1) | (shift_down_left == -1)
+            delta = jnp.where(delta == -1, -1, jnp.where((delta == 1) & adjacent_neg_ones, 1, 0))
+            
+            if not np.any(delta == -1):
+                print(step,current_step, "no change detected")
+                continue
+            
+            
+            self.update_change_rate(1/(current_step- self.previous_observed_change))
+            self.previous_observed_change = current_step
+             
+            moved_from_indices = jnp.array(jnp.where(delta==-1))
+            moved_to_indices = jnp.array(jnp.where(delta==1))
+            direction = (moved_from_indices - moved_to_indices)
+            print(step, current_step, direction, self.change_rate)
+            
+            # print(prev_obs)
+            # print(observation)
+            print(delta)
 
-        direction = (moved_from_indices - moved_to_indices) # (2 x #nebulas) row is i-direction, #column is j-direction (row, column). 
+        
+        self.observations[current_step] = (observation, observable)
+        #[7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100]
+
+        # delta = obs - self.previous
+
+        # moved_from_indices = jnp.array(jnp.where(delta==-1))
+        # moved_to_indices = jnp.array(jnp.where(delta==1))
+
+        # direction = (moved_from_indices - moved_to_indices) # (2 x #nebulas) row is i-direction, #column is j-direction (row, column). 
 
 
 
