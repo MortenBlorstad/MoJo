@@ -6,7 +6,7 @@ from obsqueue import ObservationQueue
 from abc import ABC, abstractmethod
 import flax
 import flax.serialization
-from State import State
+from state import State
 
 from nebula import Nebula
 from unitpos import Unitpos
@@ -161,18 +161,20 @@ class Universe():
         env = LuxAIS3GymEnv(numpy_output=True)                  #Are we using torch? Supported? Maybe stick to jax...
         #obs, info = env.reset(seed=data['metadata']['seed'])    #Start with seed from dump
         step, player, obs, cfg, timeleft = getObservation(seed,0)
-        print(cfg)
-        observations = jnp.zeros((10,24,24))
-        for t in range(10):
+        print(player)
+        observations = jnp.zeros((20,24,24))
+        for t in range(1,21):
             step, player, obs, cfg, timeleft = getObservation(seed,t)
-            nebulas = State(obs, "player_0").nebulas
+            state = State(obs, "player_0")
+            nebulas = jnp.array(state.nebulas.copy())
             observations = observations.at[t].set(nebulas)
         
-        print(observations)
+        print(observations[0])
+        print(observations[1])
 
         
         #print(flax.serialization.to_state_dict(env.state))
-        
+        step, player, obs, cfg, timeleft = getObservation(seed,1)
         state = State(obs, "player_0")
         print("player_units_count")
         print(state.player_units_count)
@@ -195,8 +197,8 @@ if __name__ == "__main__":
     #Get initial observation
     step, player, obs, cfg, timeleft = getObservation(seed,0)
 
+
     # # #Just checking that everything is working as expected
-    firstObs = from_json(getPath(seed,0))
     u = Universe(player,obs,cfg,horizont=3, seed=seed)
     u.testuniverse(seed)
 

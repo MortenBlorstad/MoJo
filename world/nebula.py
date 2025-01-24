@@ -6,12 +6,14 @@ import numpy as np
 
 class Nebula(base_component):
 
-    def __init__(self, horizon):
+    def __init__(self, horizon, first_obs):
         super().__init__()
         self.horizon = horizon
         self.map = jnp.zeros((1+horizon,24,24))
         self.nebula_tile_drift_speed = np.mean(self.env_params_ranges["nebula_tile_drift_speed"],dtype=np.float16) # 0
         self.steps = 0
+        self.change_steps = set([7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100])
+        self.previous = first_obs
 
     def _move_astroid_or_nebula(self, map_object):
         """
@@ -45,20 +47,21 @@ class Nebula(base_component):
         )
         return new_map
 
-    def learn(self, obs):
+    def round_down_to_nearest_100(self,num):
+        return (num // 100) * 100
+    
+    def should_check(self,num):
+        return (num - self.round_down_to_nearest_100(num)) in self.change_steps
+
+
+   
+    def learn(self, obs,observable, current_step):
         """
             check whether nebula_tile_drift_speed in one of the following values {-0.5: move up-right every other step,-0.25: move up-right every 4th step,0.25: move down-left every 4th step,0.5 move down-left every second step}
             obs: (5x24,24) four time steps of nebula positions, (current_step-5, current_step-3, current_step-2, current_step-1, current_step) current time step + 4 previous
             current_step: current step number
         """
-        # old values
-        # possible_drift_speeds = {
-        #     -0.5: (-1, 1),   # Move up-right every other step
-        #     -0.25: (-1, 1),  # Move up-right every 4th step
-        #     0.25: (1, -1),   # Move down-left every 4th step
-        #     0.5: (1, -1)     # Move down-left every second step
-        # }
-
+       
         possible_drift_speeds = {
             -0.15: (-1, 1),   # Move up-right every 7th step
             -0.1: (-1, 1),  # Move up-right every 10th step
@@ -69,33 +72,65 @@ class Nebula(base_component):
             0.1: (1, -1),     # Move down-left every 10th step
             0.15: (1, -1),     # Move down-left every 7th step
         }
-        
-        odd = int(self.steps%2==1)
-        second_check_ind = 6-1-odd
-        first_check_ind = second_check_ind-2
-        
-        start_state = obs[first_check_ind-2]
-        first_check = obs[first_check_ind]
-        second_check = obs[second_check_ind]
 
-        # Compare movement patterns to find matching drift speed
-        for speed, (row_shift, col_shift) in possible_drift_speeds.items():
-            # Check if the difference in state matches the expected movement pattern
-            first_state = jnp.roll(start_state, shift=(row_shift, col_shift), axis=(0, 1)) #first potential change
+        if not self.should_check(current_step):
+            return 
+        
+        delta = obs - self.previous
+
+        moved_from_indices = jnp.array(jnp.where(delta==-1))
+        moved_to_indices = jnp.array(jnp.where(delta==1))
+
+        direction = (moved_from_indices - moved_to_indices) # (2 x #nebulas) row is i-direction, #column is j-direction (row, column). 
+
+
+
+
+
+    # def learn(self, obs,current_step):
+    #     """
+    #         check whether nebula_tile_drift_speed in one of the following values {-0.5: move up-right every other step,-0.25: move up-right every 4th step,0.25: move down-left every 4th step,0.5 move down-left every second step}
+    #         obs: (5x24,24) four time steps of nebula positions, (current_step-5, current_step-3, current_step-2, current_step-1, current_step) current time step + 4 previous
+    #         current_step: current step number
+    #     """
+       
+    #     possible_drift_speeds = {
+    #         -0.15: (-1, 1),   # Move up-right every 7th step
+    #         -0.1: (-1, 1),  # Move up-right every 10th step
+    #         -0.05: (-1, 1),  # Move up-right every 20th step
+    #         -0.025: (-1, 1),  # Move up-right every 40th step
+    #         0.025: (1, -1),   # Move down-left every 40th step
+    #         0.05: (1, -1),     # Move down-left every 20th step
+    #         0.1: (1, -1),     # Move down-left every 10th step
+    #         0.15: (1, -1),     # Move down-left every 7th step
+    #     }
+        
+    #     odd = int(self.steps%2==1)
+    #     second_check_ind = 6-1-odd
+    #     first_check_ind = second_check_ind-2
+        
+    #     start_state = obs[first_check_ind-2]
+    #     first_check = obs[first_check_ind]
+    #     second_check = obs[second_check_ind]
+
+    #     # Compare movement patterns to find matching drift speed
+    #     for speed, (row_shift, col_shift) in possible_drift_speeds.items():
+    #         # Check if the difference in state matches the expected movement pattern
+    #         first_state = jnp.roll(start_state, shift=(row_shift, col_shift), axis=(0, 1)) #first potential change
             
-            second_state = jnp.roll(first_check, shift=(row_shift, col_shift), axis=(0, 1)) #second potential change
+    #         second_state = jnp.roll(first_check, shift=(row_shift, col_shift), axis=(0, 1)) #second potential change
             
-            # If movement pattern matches, assign the corresponding drift speed
-            # Compare calculated movement with observed changes
-            if jnp.allclose(first_check, first_state,atol=1e-6) and jnp.allclose(second_check, second_state,atol=1e-6):
-                self.nebula_tile_drift_speed = jnp.sign(speed).item()*0.5
-                return
-            if jnp.allclose(first_check, first_state,atol=1e-6) or jnp.allclose(second_check, second_state,atol=1e-6):
-                self.nebula_tile_drift_speed = jnp.sign(speed).item()*0.25
-                return
+    #         # If movement pattern matches, assign the corresponding drift speed
+    #         # Compare calculated movement with observed changes
+    #         if jnp.allclose(first_check, first_state,atol=1e-6) and jnp.allclose(second_check, second_state,atol=1e-6):
+    #             self.nebula_tile_drift_speed = jnp.sign(speed).item()*0.5
+    #             return
+    #         if jnp.allclose(first_check, first_state,atol=1e-6) or jnp.allclose(second_check, second_state,atol=1e-6):
+    #             self.nebula_tile_drift_speed = jnp.sign(speed).item()*0.25
+    #             return
            
-        # Default to zero if no movement pattern is detected
-        self.nebula_tile_drift_speed = 0.0
+    #     # Default to zero if no movement pattern is detected
+    #     self.nebula_tile_drift_speed = 0.0
         
     def predict(self):
         self.map = self._move_astroid_or_nebula(self.map)
