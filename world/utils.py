@@ -31,7 +31,7 @@ def getObsNamespace(file):
 
 #Path to replay files
 def getPath(seed, obs):
-    return "../MoJo/world/replay/{seed}/obs_{obs}".format(seed = seed, obs = obs)        
+    return "MoJo/world/replay/{seed}/obs_{obs}".format(seed = seed, obs = obs)        
 
 #Call this function to get an observation. Note that only first observations (step = 0) contains 'env_cfg'. Otherwise, empty dict is returned.
 #'step' & 'player' is also contained in 'observation.obs' It is returned seperately to mimimc the behaviour of main.py:agent_fn(...) 

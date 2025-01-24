@@ -1,4 +1,4 @@
-from utils.utils import direction_to
+from agents.utils.utils import direction_to
 import sys
 import numpy as np
 class Agent():

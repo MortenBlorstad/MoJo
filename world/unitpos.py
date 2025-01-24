@@ -1,4 +1,4 @@
-from base_component import base_component
+from world.base_component import base_component
 import jax
 import jax.numpy as jnp
 
