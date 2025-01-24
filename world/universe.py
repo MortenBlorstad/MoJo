@@ -1,16 +1,19 @@
-from luxai_s3.wrappers import LuxAIS3GymEnv
+from luxai_s3.wrappers import LuxAIS3GymEnvCheat
+
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import jax.numpy as jnp
 import json
-from utils import getObservation, getObsNamespace,getPath,from_json
-from obsqueue import ObservationQueue
+from world.utils import getObservation, getObsNamespace, getPath, from_json
+from world.obsqueue import ObservationQueue
 from abc import ABC, abstractmethod
 import flax
 import flax.serialization
-from obs_to_state import State
+from world.obs_to_state import State
 import socket
-from nebula import Nebula
-from unitpos import Unitpos
-
+from world.nebula import Nebula
+from world.unitpos import Unitpos
 
 class Universe():
 
@@ -189,12 +192,57 @@ def morten():
     
     #print(flax.serialization.to_state_dict(env.state))
     step, player, obs, cfg, timeleft = getObservation(seed,1)
+    
     state = State(obs, "player_0")
     # print("player_units_count")
     # print(state.player_units_count)
 
     # print("\n nebulas")
     # print(state.nebulas)
+
+
+def test():
+    import numpy as np
+    def check_prediction_accuracy(correct_nebulas, prediction):
+        # Check if all values where prediction == 1 are also 1 in correct_nebulas
+        condition_1 = jnp.all(correct_nebulas[prediction == 1] == 1)
+
+        # Check if all values where correct_nebulas == 0 are also 0 in prediction
+        condition_2 = jnp.all(prediction[correct_nebulas == 0] == 0)
+
+        # Return True if both conditions are met, otherwise False
+        return condition_1 & condition_2
+    env = LuxAIS3GymEnvCheat() 
+    seed = 223344
+    obs, info = env.reset(seed=seed)
+    actions = {
+            "player_0": jnp.zeros((16, 3), dtype=int),
+            "player_1": jnp.zeros((16, 3), dtype=int)
+            }
+    #env.env_params["nebula_tile_drift_speed"] = -0.05
+    nebula = Nebula(3)
+    print(env.env_params)
+    for step in range(1,22):
+        _, _, _, _, _, state = env.step(actions)
+        _, _, obs, _, _ = getObservation(seed,step)
+        
+        my_state = State(obs, "player_1")
+        nebulas = jnp.array(my_state.nebulas.copy())
+        observable = jnp.array(my_state.observeable_tiles.copy())
+        nebula.learn(nebulas,observable,step-1)
+        prediction = nebula.predict(nebulas,step)
+
+        state = flax.serialization.to_state_dict(state)
+        correct_state = State(state, "player_1")
+        correct_nebulas = jnp.array(correct_state.nebulas.copy())
+
+        print(step -1, check_prediction_accuracy(correct_nebulas, prediction))
+        if not check_prediction_accuracy(correct_nebulas, prediction):
+            print(correct_nebulas.T)
+            print(prediction.T)
+            break
+
+       
 
 
 if __name__ == "__main__":
@@ -204,4 +252,5 @@ if __name__ == "__main__":
     #     jorgen()
     # else:
     
-    morten()
+    #morten()
+    test()
