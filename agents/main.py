@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
 
     NUM_OBS = 75
-    SEED = 223344
+    SEED = 123
 
     while True:
         inputs = read_input()

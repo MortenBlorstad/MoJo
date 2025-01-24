@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 import flax
 import flax.serialization
 from state import State
-
+import socket
 from nebula import Nebula
 from unitpos import Unitpos
 
@@ -136,79 +136,65 @@ class Universe():
         #return jnp.stack((s1,s2,s3),axis=2)
         
         
-    #Step through all actions included in dump and assert that the resulting energy map matches the one we loaded from file
-    def testuniverse(self, seed):
 
-        # #Get data from dumpfile
-        # def loaddata(dump):
-        #     # Open and read the JSON file        
-        #     with open(dump, 'r') as file:
-        #         return json.load(file)
-        
-        
-            
-        #Get actual actions taken at time step t as (jax) dictionary
-        # def getjaxtions(t):
-        #     return {
-        #     "player_0": jnp.array(data['actions'][t]['player_0']),
-        #     "player_1": jnp.array(data['actions'][t]['player_1'])
-        #     }
-        
-        #Load data 
-        # data = loaddata(dumpfile)
-        
-        #Initiate the gym
-        env = LuxAIS3GymEnv(numpy_output=True)                  #Are we using torch? Supported? Maybe stick to jax...
-        #obs, info = env.reset(seed=data['metadata']['seed'])    #Start with seed from dump
-        step, player, obs, cfg, timeleft = getObservation(seed,0)
-        print(player)
-        observations = jnp.zeros((20,24,24))
-        for t in range(1,21):
-            step, player, obs, cfg, timeleft = getObservation(seed,t)
-            state = State(obs, "player_0")
-            nebulas = jnp.array(state.nebulas.copy())
-            observations = observations.at[t].set(nebulas)
-        
-        print(observations[0])
-        print(observations[1])
+#Test function for Jørgen
+def jorgen():
 
-        
-        #print(flax.serialization.to_state_dict(env.state))
-        step, player, obs, cfg, timeleft = getObservation(seed,1)
-        state = State(obs, "player_0")
-        print("player_units_count")
-        print(state.player_units_count)
-
-        print("\n nebulas")
-        print(state.nebulas)
-        #assert jnp.all(env.state.map_features.energy == jnp.array(data['observations'][-1]['map_features']['energy']))
-        print("Stepped through everything....")
-
-
-if __name__ == "__main__":
-
-    # #Just checking that everything is working as expected
-    # u = Universe()
-    # u.testuniverse('./../MoJo/world/seed54321.json')  
+    print("Running Jørgens tests")
 
     #Fix a seed for testing. 
     seed = 223344
 
     #Get initial observation
     step, player, obs, cfg, timeleft = getObservation(seed,0)
-
-
-    # # #Just checking that everything is working as expected
-    u = Universe(player,obs,cfg,horizont=3, seed=seed)
-    u.testuniverse(seed)
-
-    #state = State(secondObs["obs"], "player_1")
-    #Create a fixed seed universe
     
+    #Create a fixed seed universe
+    u = Universe(player,obs,cfg,horizont=3, seed=seed)       
     
     #Get another observation
-    # _, _, obs, _, timeleft = getObservation(seed,27)
-    # print(obs)
-    
+    _, _, obs, _, timeleft = getObservation(seed,27)
+
     # #Test universe prediction
-    # u.predict(obs, timeleft)
+    u.predict(obs, timeleft)
+
+
+#Test function for Morten
+def morten():
+
+    print("Running Mortens tests")
+
+    seed = 223344
+
+    #env = LuxAIS3GymEnv(numpy_output=True)                  #Are we using torch? Supported? Maybe stick to jax...
+    #obs, info = env.reset(seed=data['metadata']['seed'])    #Start with seed from dump
+    step, player, obs, cfg, timeleft = getObservation(seed,0)
+    print(player)
+    observations = jnp.zeros((20,24,24))
+    for t in range(1,21):
+        step, player, obs, cfg, timeleft = getObservation(seed,t)
+        state = State(obs, "player_0")
+        nebulas = jnp.array(state.nebulas.copy())
+        observations = observations.at[t].set(nebulas)
+    
+    print(observations[0])
+    print(observations[1])
+
+    
+    #print(flax.serialization.to_state_dict(env.state))
+    step, player, obs, cfg, timeleft = getObservation(seed,1)
+    state = State(obs, "player_0")
+    print("player_units_count")
+    print(state.player_units_count)
+
+    print("\n nebulas")
+    print(state.nebulas)
+
+
+if __name__ == "__main__":
+
+    # #Branch out to avoid any more GIT HASSLE
+    # if socket.gethostname() == "MSI":
+    #     jorgen()
+    # else:
+    
+    morten()
