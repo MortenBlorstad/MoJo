@@ -6,7 +6,7 @@ from obsqueue import ObservationQueue
 from abc import ABC, abstractmethod
 import flax
 import flax.serialization
-from state import State
+from obs_to_state import State
 import socket
 from nebula import Nebula
 from unitpos import Unitpos
@@ -164,30 +164,37 @@ def morten():
     print("Running Mortens tests")
 
     seed = 223344
-
+    #u = Universe(player="player_0")
     #env = LuxAIS3GymEnv(numpy_output=True)                  #Are we using torch? Supported? Maybe stick to jax...
     #obs, info = env.reset(seed=data['metadata']['seed'])    #Start with seed from dump
     step, player, obs, cfg, timeleft = getObservation(seed,0)
     print(player)
+    nebula = Nebula(horizon=3)
     observations = jnp.zeros((20,24,24))
-    for t in range(1,21):
+    for t in [1,11,21,41]:#range(1,22):
         step, player, obs, cfg, timeleft = getObservation(seed,t)
         state = State(obs, "player_0")
         nebulas = jnp.array(state.nebulas.copy())
-        observations = observations.at[t].set(nebulas)
+   
+        observable = jnp.array(state.observeable_tiles.copy())
+        #print(t, player,"\n", nebulas, "\n\n" )
+        print("\n", t)
+        nebula.learn(nebulas,observable, t-1)
+        observations = observations.at[t-1].set(nebulas)
     
-    print(observations[0])
-    print(observations[1])
-
+    # print(observations[0])
+    # print(observations[1])
+    # print(observations[2])
+    
     
     #print(flax.serialization.to_state_dict(env.state))
     step, player, obs, cfg, timeleft = getObservation(seed,1)
     state = State(obs, "player_0")
-    print("player_units_count")
-    print(state.player_units_count)
+    # print("player_units_count")
+    # print(state.player_units_count)
 
-    print("\n nebulas")
-    print(state.nebulas)
+    # print("\n nebulas")
+    # print(state.nebulas)
 
 
 if __name__ == "__main__":
