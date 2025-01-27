@@ -1,17 +1,15 @@
-from luxai_s3.env import EnvObs
 import numpy as np
 class State():
 
-    def __init__(self, obs:dict,player: str):
+    def __init__(self,obs:dict,player: str):
         self.player = player
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         self.team_id = 0 if self.player == "player_0" else 1
         self.opp_team_id = 1 if self.team_id == 0 else 0
+        self.make_state(obs)
 
-
+    def make_state(self, obs:dict):
         # For obs struct see: https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/kits/README.md#observations 
-
-        # player and opponent unit counts
         unit_mask = np.array(obs["units_mask"]) # shape (max_units, )
         unit_positions = np.array(obs["units"]["position"]) # shape (max_units, 2)
         
@@ -66,5 +64,4 @@ class State():
 
 
         
-
 
