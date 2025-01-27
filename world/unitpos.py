@@ -12,9 +12,7 @@ class Unitpos(base_component):
     def getMap(self, obs):
         
         #Remove empty observations
-        obs = obs[jnp.where((obs[:,0] != -1) & (obs[:,1] != -1))]
-
-        #print(obs)
+        obs = obs[jnp.where((obs[:,0] != -1) & (obs[:,1] != -1))]        
 
         #Create indices of ship positions, using y,x
         indices = (obs[:,1],obs[:,0])        
@@ -26,12 +24,10 @@ class Unitpos(base_component):
         return luxmap
 
     def learn(self, obs):
-        pass
-        #print(obs)
         
-        #print("---------------------------------------")
-        #print(self.getMap(jnp.array(obs[0])))
-        #print("---------------------------------------")
+        print("---------------------------------------")
+        print(self.getMap(jnp.array(obs[0])))
+        print("---------------------------------------")
         
     def predict(self):
         pass
