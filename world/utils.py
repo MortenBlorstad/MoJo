@@ -31,7 +31,7 @@ def getObsNamespace(file):
 
 #Path to replay files
 def getPath(seed, obs):
-    return "MoJo/world/replay/{seed}/obs_{obs}".format(seed = seed, obs = obs)        
+    return "../MoJo/world/replay/{seed}/obs_{obs}".format(seed = seed, obs = obs)        
 
 #Call this function to get an observation. Note that only first observations (step = 0) contains 'env_cfg'. Otherwise, empty dict is returned.
 #'step' & 'player' is also contained in 'observation.obs' It is returned seperately to mimimc the behaviour of main.py:agent_fn(...) 
@@ -44,3 +44,83 @@ def getObservation(seed,step):
 
     #Match parameters in Agent:main.py. We don't need all of this
     return observation.step, observation.player, from_json(observation.obs), config, observation.remainingOverageTime
+
+#Unicode representation of Lux map (for example ship position probabilities)
+def printmap(arr, header = None): 
+
+            #Unicode map characters
+            tl = '\u250C'
+            tr = '\u2510'
+            ue = '\u2500'
+            bl = '\u2514'
+            br = '\u2518'
+            cr = '\u253C'
+            fl = '\u251C'
+            fr = '\u2524'
+            fb = '\u2534'        
+            ft = '\u252C'        
+            hl = '\u2502'        
+
+            #First / last line of map, depending on param isstop
+            def mapstartstop(columns,istop):
+                if(istop):
+                    rc = tr #Right corner
+                    lc = tl #Left corner
+                    f = ft  #Fork
+                else:
+                    rc = br #Right corner
+                    lc = bl #Left corner
+                    f = fb  #Fork
+
+                x = []        
+                for i in range(columns):
+                    x.extend([f,ue,ue,ue])
+                x[0] = lc
+                x.append(rc)
+                return x
+            
+            #Map line
+            def mapline(columns):
+                x = []        
+                for i in range(columns):
+                    x.extend([cr,ue,ue,ue])
+                x[0] = fl
+                x.append(fr)
+                return x
+
+            #Format values
+            def getval(v):
+                if(v >= 10):                
+                    return str(round(v)).ljust(3)
+                elif(v >= 1):
+                    return '{:.1f}'.format(round(v, 1))
+                else:
+                    return '{:.2f}'.format(round(v, 2))[1:]
+            
+            #Format a map line with values
+            def mapvals(values):
+                x = []
+                for v in values:
+                    x.append(hl)
+                    x.append(getval(v))
+                x.append(hl)
+                return x            
+
+            #------------------------------------------------
+            #Begin processing map array
+            #------------------------------------------------
+
+            #shape of input
+            shp = arr.shape   
+
+            #Print header
+            if(header != None):
+                print(header)
+
+            #Process map array
+            print(''.join(mapstartstop(shp[1],True)))
+            for i in range(shp[0]):                        
+                print(''.join(mapvals(arr[i])))
+                if(i != (shp[0]-1)):
+                    print(''.join(mapline(shp[1])))            
+            print(''.join(mapstartstop(shp[1],False))) 

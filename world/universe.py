@@ -1,4 +1,4 @@
-from luxai_s3.wrappers import LuxAIS3GymEnvCheat
+#from luxai_s3.wrappers import LuxAIS3GymEnvCheat
 
 import sys
 import os
@@ -66,11 +66,13 @@ class Universe():
         # self.relic = Relic()
         self.nebula = Nebula(self.horizont)
         self.p1pos = Unitpos(self.horizont)
+        self.p2pos = Unitpos(self.horizont)
     
     def learnuniverse(self):
 
         #self.nebula.learn()
-        self.p1pos.learn(self.obsQueue.LastN(['units','position',0], 1))
+        self.p1pos.learn(self.obsQueue.Last(['units','position',0]))
+        self.p2pos.learn(self.obsQueue.Last(['units','position',1]))
 
         #predict parameters here
         pass
@@ -123,16 +125,32 @@ class Universe():
         #Learn universe
         self.learnuniverse()
 
-        self.p1pos.predict()
+        #Predict Nebula here
+        #nebula = .... 
 
-        #For now, let's use the Env
-        #R relic.precict() (R_1,R_2, R_3)
-        #A astroid.precict() (A_1,A_2, A_3)
+        #Predict Astroid here
+        #astroid = .... 
 
-        print("Nebula")
-        self.nebula.nebula_tile_drift_speed = -0.5
-        print(self.nebula.predict())
-        print('')
+        #Ship positions        
+
+        #Demo astroid field, while Morten finishes up        
+        astroidField = jnp.zeros((24,24))
+        astroidPredictions = [astroidField for i in range(self.horizont+1)]
+        #Manually set a value for testing purposes
+        astroidPredictions[1] = astroidPredictions[1].at[2,3].set(.5)
+
+        #Predict P1 positions
+        self.p1pos.predict(astroidPredictions, debug=False)
+
+        #Predict P2 positions
+        self.p2pos.predict(astroidPredictions, debug=False)        
+
+        #Predict Relic tiles
+        #relic.precict(...)
+
+        #Predict Energy
+        #energy.precict(...)                
+        
         print("Done predicicting future")
 
         #Return...
@@ -152,14 +170,13 @@ def jorgen():
     step, player, obs, cfg, timeleft = getObservation(seed,0)
     
     #Create a fixed seed universe
-    u = Universe(player,obs,cfg,horizont=3, seed=seed)       
-    
+    u = Universe(player,obs,cfg,horizont=3, seed=seed)
+
     #Get another observation
     _, _, obs, _, timeleft = getObservation(seed,27)
 
-    # #Test universe prediction
+    #Test universe prediction
     u.predict(obs, timeleft)
-
 
 #Test function for Morten
 def morten():
@@ -241,8 +258,7 @@ def test():
             print(correct_nebulas.T)
             print(prediction.T)
             break
-
-       
+    
 
 
 if __name__ == "__main__":
@@ -253,4 +269,5 @@ if __name__ == "__main__":
     # else:
     
     #morten()
-    test()
+    #test()
+    jorgen()
