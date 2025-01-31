@@ -10,13 +10,13 @@ class Nebula(base_component):
         super().__init__()
         self.horizon = horizon
         #self.map = jnp.zeros((1+horizon,24,24))
-        self.nebula_tile_drift_speed = 40
+        self.nebula_tile_drift_speed = 0.025
         self.change_steps = [7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100]
         self.change_steps_set = set(self.change_steps)
-        self.previous_observed_change =0
+        self.previous_observed_change = 0
         self.change_rate = 0
         self.prev_step = 0
-        self.map = jnp.zeros((24,24))
+        self.map = jnp.ones((24,24))/3
 
     def _move_astroid_or_nebula(self, map_object,steps):
         """
@@ -36,6 +36,7 @@ class Nebula(base_component):
        
         # new
         # Conditionally update the map based on drift speed and step count
+        #print(steps,(steps - 1) * abs(self.nebula_tile_drift_speed) % 1 > steps * abs(self.nebula_tile_drift_speed) % 1)
         new_map = jnp.where(
             (steps - 1) * abs(self.nebula_tile_drift_speed) % 1 > steps * abs(self.nebula_tile_drift_speed) % 1, # Check if it's time to apply the shift
             new_map, # Apply the shifted map if condition is met (step interval reached)
@@ -157,8 +158,9 @@ class Nebula(base_component):
         change = change or self.detect_obstacle_leaving(self.prev_observation,observation_masked)
 
         if not np.any(delta == -1):
-            print(current_step, "no change detected")
+            print(f"no change detected at change step {current_step}")
         else:
+            
             self.update_change_rate(1/(current_step- self.previous_observed_change))
             self.previous_observed_change = current_step
             # print(current_step, delta.T)   
@@ -166,37 +168,56 @@ class Nebula(base_component):
             # print(self.prev_step, self.prev_observation.T) 
             moved_from_indices = jnp.array(jnp.where(delta==-1))
             moved_to_indices = jnp.array(jnp.where(delta==1))
-            directions = (moved_from_indices - moved_to_indices)
-            #print(self.prev_step,current_step, direction, self.change_rate)
-        
-            expected_direction_1 = jnp.array([[1], [-1]])  # Down-left movement
-            expected_direction_2 = jnp.array([[-1], [1]])  # Up-right movement
-                # Check if all movements follow the same pattern
-
-            
-            if jnp.all(directions == expected_direction_1):
-                direction = -1
-            elif jnp.all(directions == expected_direction_2):
-                direction = 1
+            if moved_from_indices.shape != moved_to_indices.shape:
+                possible_directions = jnp.array([[1, -1], [-1, 1]])  # (row change, column change)
+                directions = [1,-1]
+                moved_from_plus_dir1 = moved_from_indices + directions[0][:, None]  # Move (1,-1)
+                moved_from_plus_dir2 = moved_from_indices + directions[1][:, None]  # Move (-1,1)
+                matches_dir1 = jnp.sum((moved_from_plus_dir1[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
+                matches_dir2 = jnp.sum((moved_from_plus_dir2[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
+                direction = directions[jnp.argmax(jnp.array([matches_dir1.sum(), matches_dir2.sum()]))]
             else:
-                raise Exception("Mixed movement or no consistent pattern")
+                directions = (moved_from_indices - moved_to_indices)
+                #print(self.prev_step,current_step, direction, self.change_rate)
+            
+                expected_direction_1 = jnp.array([[1], [-1]])  # Down-left movement
+                expected_direction_2 = jnp.array([[-1], [1]])  # Up-right movement
+                # Check if all movements follow the same pattern
+                if jnp.all(directions == expected_direction_1):
+                    direction = -1
+                elif jnp.all(directions == expected_direction_2):
+                    direction = 1
+                else:
+                    raise Exception("Mixed movement or no consistent pattern")
         
             self.nebula_tile_drift_speed = direction*self.closest_change_rate(self.change_rate)
-            print(current_step, self.nebula_tile_drift_speed,direction*self.change_rate)    
+            #print(current_step, self.nebula_tile_drift_speed, direction*self.change_rate)
+            print(f"Change detected at change step {current_step}. Nebula speed is {self.nebula_tile_drift_speed}")    
             
 
         self.prev_observation = observation
         self.prev_observable = observable
         self.prev_step = current_step
 
-        self.map = self._move_astroid_or_nebula(self.map ,current_step)
+        self.map = self._move_astroid_or_nebula(self.map, current_step)
         self.map = self.map.at[observable==1].set(observation[observable==1])
 
     
 
 
-    def predict(self, map,current_step):
-        return self._move_astroid_or_nebula(self.map, current_step).copy()
+    def predict(self,observation, observable,current_step):
+
+        predictions = []
+        # self.map = self.map.at[observable==1].set(observation[observable==1])
+        # self.map = self.map.at[observable==0].set(observation[observable==0])
+        # self.map = self._move_astroid_or_nebula(self.map, current_step)
+        predictions.append(self.map)
+        prediction = self.map.copy()
+        for i in range(1,self.horizon+1):
+            prediction = self._move_astroid_or_nebula(prediction, current_step+i)
+            predictions.append(prediction)
+
+        return predictions
 
 
 if __name__ == "__main__":
