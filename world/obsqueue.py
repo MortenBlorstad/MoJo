@@ -10,7 +10,7 @@ class ObservationQueue():
     def __call__(self, observation):
         self.obsQueue.append(self.format(observation))
         if(len(self.obsQueue) > self.obsQueueLen):
-            self.obsQueue.pop()
+            self.obsQueue.pop(0)
 
     #Put formatting of observation here
     def format(self,observation):
