@@ -1,7 +1,44 @@
 import numpy as np
 class State():
+    """
+    Represents the game state for a player in the Lux AI Challenge.
+
+    This class processes the raw game observation dictionary into structured data, 
+    extracting relevant features such as units, energy, tile types, and relic nodes.
+    It provides a convenient interface for accessing game information in a structured format.
+
+    Attributes:
+        player (str): The player's identifier (e.g., "player_0" or "player_1").
+        opp_player (str): The opponent's identifier.
+        team_id (int): The player's team ID (0 for "player_0", 1 for "player_1").
+        opp_team_id (int): The opponent's team ID.
+        player_units_count (np.ndarray): A 24x24 grid indicating the number of player-owned units per tile.
+        opponent_units_count (np.ndarray): A 24x24 grid indicating the number of opponent-owned units per tile.
+        unit_energys (np.ndarray): Energy values of the player's units.
+        observeable_tiles (np.ndarray): A 24x24 grid indicating which tiles are observable.
+        energy (np.ndarray): A 24x24 grid showing the amount of energy available on each tile.
+        nebulas (np.ndarray): A 24x24 binary grid marking nebula tiles.
+        asteroids (np.ndarray): A 24x24 binary grid marking asteroid tiles.
+        relic_nodes (np.ndarray): A 24x24 binary grid marking the presence of relic nodes.
+
+    Methods:
+        make_state(obs: dict): Parses the raw observation dictionary and populates the state attributes.
+        count_units(unit_mask, unit_positions: np.ndarray) -> np.ndarray:
+            Counts the number of units per tile and returns a 24x24 grid.
+        get_relic_node_pos(relic_nodes_mask, relic_node_positions) -> np.ndarray:
+            Generates a 24x24 grid indicating the presence of relic nodes.
+        get_tile_type(tile_type: np.ndarray, type: int) -> np.ndarray:
+            Returns a 24x24 binary grid where the specified tile type is present.
+    """
 
     def __init__(self,obs:dict,player: str):
+        """
+        Initializes the State object for a given player based on the observation data.
+
+        Args:
+            obs (dict): The raw observation dictionary provided by the game environment.
+            player (str): The player's identifier, either "player_0" or "player_1".
+        """
         self.player = player
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         self.team_id = 0 if self.player == "player_0" else 1
@@ -37,21 +74,21 @@ class State():
 
 
 
-    def count_units(self, unit_mask, unit_positions:np.ndarray):
+    def count_units(self, unit_mask:np.ndarray, unit_positions:np.ndarray)->np.ndarray:
         player_units_count = np.zeros((24, 24), dtype=int)
         available_unit = np.where(unit_mask)[0]
         player_available_unit_count = unit_positions[available_unit]
         np.add.at(player_units_count, tuple(player_available_unit_count.T), 1)
         return player_units_count
     
-    def get_relic_node_pos(self, relic_nodes_mask, relic_node_positions):
+    def get_relic_node_pos(self, relic_nodes_mask:np.ndarray, relic_node_positions:np.ndarray)->np.ndarray:
         relic_node_grid = np.zeros((24, 24), dtype=int)
         visible_relics = np.where(relic_nodes_mask)[0]
         visible_relics_pos = relic_node_positions[visible_relics]
         np.add.at(relic_node_grid, tuple(visible_relics_pos.T), 1)
         return relic_node_grid
     
-    def get_tile_type(self, tile_type, type:int):
+    def get_tile_type(self, tile_type:np.ndarray, type:int)->np.ndarray:
         """
             tile_type: 24x24 with values 0,1 or 2
             
