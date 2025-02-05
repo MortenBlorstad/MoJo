@@ -46,6 +46,13 @@ class State():
         self.make_state(obs)
 
     def make_state(self, obs:dict):
+        
+        #number of steps taken in the current game/episode
+        self.steps = int(obs["steps"])
+        
+        #number of steps taken in the current match
+        self.match_steps = int(obs["match_steps"])
+
         # For obs struct see: https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/kits/README.md#observations 
         unit_mask = np.array(obs["units_mask"]) # shape (max_units, )
         unit_positions = np.array(obs["units"]["position"]) # shape (max_units, 2)
