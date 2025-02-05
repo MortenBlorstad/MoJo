@@ -45,6 +45,7 @@ class Unitpos(base_component):
         #Update values based on astroid probabilities on a given tile
         for idx, a in enumerate(astroids[1:]):
             if(a > 0):
+                a = a.T # transpose to make same as probmaps 
                 reduction = probs[idx+1]*a                
                 probs = probs.at[0].add(reduction)
                 probs = probs.at[idx+1].subtract(reduction)                

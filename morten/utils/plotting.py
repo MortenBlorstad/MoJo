@@ -1,34 +1,17 @@
 
-import sys
-import os
-# Get the absolute path of the MoJo directory
-mojo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.insert(0, mojo_path)  # Ensure it is searched first
-
-from agents.agent import Agent
-
-
-from world.universe import Universe
-
-from world.obs_to_state import State
 import jax.numpy as jnp
-from world.utils import getObservation, getObsNamespace, getPath, from_json
-from world.nebula import Nebula
-from world.nebula_astroid import NebulaAstroid
-import flax
-from agents.agent import Agent
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
+import os
+import glob
+
+import imageio.v2 as imageio
+import multiprocessing
 
 
-#####
-# create test env where we have the true state
-#
-#####
-
-from luxai_s3.wrappers import LuxAIS3GymEnv
-
-
-
+white_red_cmap = LinearSegmentedColormap.from_list("white_red", ["white", "red"])
+light_red_deep_red_cmap = LinearSegmentedColormap.from_list("light_red_deep_red_cmap", ["#ffcccb", "red"])  # Deep red
 def check_prediction_accuracy(correct_nebulas, prediction):
     # Identify false positives: places where prediction is 1 but correct state is 0
     false_positives = jnp.any((prediction == 1) & (correct_nebulas == 0))
@@ -42,15 +25,6 @@ def check_prediction_accuracy(correct_nebulas, prediction):
         return False
     
     return True
-
-
-import matplotlib.pyplot as plt
-
-import os
-import glob
-
-import imageio.v2 as imageio
-import multiprocessing
 
 multiprocessing.set_start_method("spawn", force=True)
 def pad_image(image, block_size=16):
@@ -77,14 +51,20 @@ def plot_state_comparison(current_step, correct_states, predicted_states, observ
     fig, axes = plt.subplots(2, 4, figsize=(12, 6))
     observable = np.array(observable,dtype=float)
     observable[observable==1]=np.inf
-    nebula_predictions, astroid_predictions = predicted_states
+    nebula_predictions = predicted_states[0]
+    astroid_predictions = predicted_states[1]
+    if len(predicted_states)==3:
+        p1_predictions = predicted_states[2]
+
+
     for i in range(4):
         correct_state = np.array(correct_states[i],dtype=float)
-        
-        
-
+    
         nebula_prediction = np.array(nebula_predictions[i],dtype=float)
         astroid_prediction = np.array(astroid_predictions[i],dtype=float)
+        if len(predicted_states)==3:
+            p1_prediction = np.array(p1_predictions[i],dtype=float)
+            p1_prediction[p1_prediction == 0.0] = np.inf
         
 
                 
@@ -95,9 +75,11 @@ def plot_state_comparison(current_step, correct_states, predicted_states, observ
         false_positive_indices_astroid = np.array(np.where((astroid_prediction == 1) & (correct_state[:,:,1] == 0)))
         false_negative_indices_astroid = np.array(np.where((astroid_prediction == 0) & (correct_state[:,:,1] == 1)))
 
+
         correct_state[correct_state == 0.0] = np.inf
         nebula_prediction[nebula_prediction != 1.0] = np.inf
         astroid_prediction[astroid_prediction == 0.0] = np.inf
+        
 
         # Plot correct state (top row)
         axes[0, i].imshow(1-correct_state[:,:,0], aspect="auto")
@@ -109,12 +91,16 @@ def plot_state_comparison(current_step, correct_states, predicted_states, observ
         # Plot predicted state (bottom row)
         axes[1, i].imshow(1-nebula_prediction, aspect="auto")
         axes[1, i].imshow(1-astroid_prediction, aspect="auto", cmap="gray", vmin = 0, vmax=1)
+        if len(predicted_states)==3:
+            axes[1, i].imshow(p1_prediction.T, aspect="auto", cmap = light_red_deep_red_cmap, vmin=0, vmax=1)
+
         axes[1, i].imshow(observable/2, aspect="auto", cmap="gray", alpha=0.25, vmin = 0, vmax=1)
         axes[1, i].set_title(f"Predicted - t={current_step+i}")
         axes[1, i].scatter(false_positive_indices_nebula[1], false_positive_indices_nebula[0], color="red", marker="x", label="False Positive", s=20)
         axes[1, i].scatter(false_negative_indices_nebula[1], false_negative_indices_nebula[0], color="blue", marker="s", label="False Negative", s=20)
         axes[1, i].scatter(false_positive_indices_astroid[1], false_positive_indices_astroid[0], color="red", marker="x", label="False Positive", s=20)
         axes[1, i].scatter(false_negative_indices_astroid[1], false_negative_indices_astroid[0], color="blue", marker="s", label="False Negative", s=20)
+       
         #axes[1, i].axis("off")
 
     plt.tight_layout()
@@ -160,65 +146,3 @@ def create_gif(seed):
         os.remove(img)
 
     print(f"GIF saved at: {video_filename}")
-
-
-
-env = LuxAIS3GymEnv() 
-#seed 0: -0.05 ok
-#seed 1: -0.1 ok
-#seed 2: 0.1 ok
-#seed 3: -0.1
-#seed 223344: -0.15 ok
-seed = 223344 #223344 #2#
-obs, info = env.reset(seed=seed)
-actions = {
-        "player_0": jnp.ones((16, 3), dtype=int),
-        "player_1": jnp.ones((16, 3), dtype=int)
-        }
-
-nebula =  NebulaAstroid(3)
-
-env_cfg = {"max_units":16, "map_width":24, "map_height": 24}
-agent = Agent("player_1",env_cfg)
-obs = flax.serialization.to_state_dict(obs)["player_1"] 
-print(env.env_params.nebula_tile_drift_speed)
-episode = {}
-n_steps = 100
-for step in range(1,n_steps):
-    actions["player_1"] = agent.act(step,obs)
-    obs, _, _, _, info,state = env.step(actions)
-    obs = flax.serialization.to_state_dict(obs)["player_1"] 
-    my_state = State(obs, "player_1")
-    state = State(flax.serialization.to_state_dict(info['final_state']), "player_1")
-    
-    episode[step] = {}
-    episode[step]["state"] = state
-    episode[step]["obs"] = my_state
-
-
-for step in range(1,n_steps-4):
-    obs = episode[step]["obs"]
-
-    nebulas =  jnp.array(obs.nebulas.copy(), ) #jnp.array(obs.asteroids.copy()) #
-    astroids = jnp.array(obs.asteroids.copy())
-    observable = jnp.array(obs.observeable_tiles.copy())
-    print(step)
-    nebula.learn(nebulas,astroids,observable,step)
-    predictions = nebula.predict(nebulas,astroids,observable,step)
-    
-    solution = jnp.stack([episode[step]["state"].nebulas,episode[step]["state"].asteroids,
-                           jnp.clip(episode[step]["state"].player_units_count, a_min =0, a_max = 1)],axis=-1)
-    solutions = [jnp.stack([episode[step+i]["state"].nebulas,
-                            episode[step+i]["state"].asteroids,
-                             jnp.clip(episode[step+i]["state"].player_units_count, a_min =0, a_max = 1)],
-                             axis=-1) for i in range(4)]
-    
-
-    plot_state_comparison(step, solutions, predictions,observable)
-
-
-create_gif(seed)
-    
- 
-
-
