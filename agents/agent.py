@@ -1,4 +1,4 @@
-from agents.utils.utils import direction_to
+from lux.utils import direction_to
 import sys
 import numpy as np
 class Agent():
@@ -13,22 +13,6 @@ class Agent():
         self.relic_node_positions = []
         self.discovered_relic_nodes_ids = set()
         self.unit_explore_locations = dict()
-
-    def count_units(self, unit_mask, unit_positions:np.ndarray):
-        player_units_count = np.zeros((24, 24), dtype=int)
-        available_unit = np.where(unit_mask)[0]
-        player_available_unit_count = unit_positions[available_unit]
-        np.add.at(player_units_count, tuple(player_available_unit_count.T), 1)
-        return player_units_count
-    
-
-    def get_relic_node_pos(self, relic_nodes_mask, relic_node_positions):
-        relic_node_grid = np.zeros((24, 24), dtype=int)
-        visible_relics = np.where(relic_nodes_mask)[0]
-        visible_relics_pos = relic_node_positions[visible_relics]
-        np.add.at(relic_node_grid, tuple(visible_relics_pos.T), 1)
-        return relic_node_grid
-    
 
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         """implement this function to decide what actions to send to each available unit. 
@@ -48,17 +32,6 @@ class Agent():
         visible_relic_node_ids = set(np.where(observed_relic_nodes_mask)[0])
         
         actions = np.zeros((self.env_cfg["max_units"], 3), dtype=int)
-
-
-        # ===========
-        # testing that stuff is correct
-        #player_units_count = self.count_units(unit_mask,unit_positions)
-        # print("player_units_count", player_units_count)
-
-        # relics = self.count_units(observed_relic_nodes_mask,observed_relic_node_positions)
-        # print("player_units_count", relics, observed_relic_nodes_mask)
-        # ===========
-
 
 
         # basic strategy here is simply to have some units randomly explore and some units collecting as much energy as possible

@@ -25,7 +25,7 @@ class Unitpos(base_component):
     def getMap(self, obs):
         
         #Remove empty observations
-        obs = obs[jnp.where((obs[:,0] != -1) & (obs[:,1] != -1))]        
+        obs = obs[jnp.where((obs[:,0] != -1) & (obs[:,1] != -1))]
 
         #Create indices of ship positions, using y,x
         indices = (obs[:,1],obs[:,0])        

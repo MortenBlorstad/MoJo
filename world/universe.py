@@ -14,6 +14,7 @@ from world.obs_to_state import State
 import socket
 from world.nebula import Nebula
 from world.unitpos import Unitpos
+from world.relic import Relics
 
 class Universe():
 
@@ -61,18 +62,35 @@ class Universe():
         self.player = player
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         self.team_id = 0 if self.player == "player_0" else 1
-        self.opp_team_id = 1 if self.team_id == 0 else 0         
+        self.opp_team_id = 1 if self.team_id == 0 else 0 
+
+        #Other stuff
+        self.totalscore = 0     #Overall score
+        self.thiscore = 0       #Score current step    
 
         # self.relic = Relic()
         self.nebula = Nebula(self.horizont)
         self.p1pos = Unitpos(self.horizont)
         self.p2pos = Unitpos(self.horizont)
+        self.relics = Relics(self.horizont, self.team_id)
     
     def learnuniverse(self):
 
+        #Update points
+        self.thiscore = self.obsQueue.Last(['team_points', self.team_id])[0] - self.totalscore
+        self.totalscore += self.thiscore
+
         #self.nebula.learn()
-        self.p1pos.learn(self.obsQueue.Last(['units','position',0]))
-        self.p2pos.learn(self.obsQueue.Last(['units','position',1]))
+        #self.p1pos.learn(self.obsQueue.Last(['units','position',self.team_id]))
+        #self.p2pos.learn(self.obsQueue.Last(['units','position',self.opp_team_id]))
+       
+        self.relics.learn(
+            self.obsQueue.Last(['match_steps']),                    #Current time. For debugging.
+            self.obsQueue.Last(['relic_nodes']),                    #Position of (visible) relic nodes
+            self.obsQueue.Last(['relic_nodes_mask']),               #List (bool) of nodes visible or not
+            self.thiscore,                                          #How many points we scored               
+            self.obsQueue.Last(['units', 'position', self.team_id]) #The whereabouts of our mighty fleet
+        )
 
         #predict parameters here
         pass
@@ -117,7 +135,7 @@ class Universe():
     #s_{t:t+h} | o_{t}
     def predict(self, observation, timeleft):
 
-        print("Remaining time (Overage) is", timeleft)
+        #print("Remaining time (Overage) is", timeleft)
 
         #Add observation to queue
         self.obsQueue(observation)
@@ -140,18 +158,18 @@ class Universe():
         astroidPredictions[1] = astroidPredictions[1].at[2,3].set(.5)
 
         #Predict P1 positions
-        self.p1pos.predict(astroidPredictions, debug=False)
+        #self.p1pos.predict(astroidPredictions, debug=False)
 
         #Predict P2 positions
-        self.p2pos.predict(astroidPredictions, debug=False)        
+        #self.p2pos.predict(astroidPredictions, debug=False)        
 
         #Predict Relic tiles
-        #relic.precict(...)
+        self.relics.predict()
 
         #Predict Energy
         #energy.precict(...)                
         
-        print("Done predicicting future")
+        #print("Done predicicting future")
 
         #Return...
         #return jnp.stack((s1,s2,s3),axis=2)
@@ -172,11 +190,14 @@ def jorgen():
     #Create a fixed seed universe
     u = Universe(player,obs,cfg,horizont=3, seed=seed)
 
-    #Get another observation
-    _, _, obs, _, timeleft = getObservation(seed,27)
+    for i in range(1,30):
+        
+        #Get another observation
+        _, _, obs, _, timeleft = getObservation(seed,i)
+        
 
-    #Test universe prediction
-    u.predict(obs, timeleft)
+        #Test universe prediction
+        u.predict(obs, timeleft)
 
 #Test function for Morten
 def morten():
@@ -259,15 +280,69 @@ def test():
             print(prediction.T)
             break
     
+class RelicFilter():
 
+    def __init__(self):
+        super().__init__()
+        #self.values = jnp.empty((0,2),dtype=jnp.int16)
+        
+        #List of relics we have seen so far
+        self.reliclist = [] 
+    
+    #Process observation of relics. Implemented as __call__ method
+    def __call__(self, relicObs):
+
+        changed = False                                     #Flag: changed or not
+        for el in relicObs.tolist():                        #Iterate relic observations
+            if not el in self.reliclist:                    #Check if already present
+                self.reliclist.append(el)                   #Add observation to list
+                self.reliclist.append([23-el[1],23-el[0]])  #Add symetric observation to list
+                changed = True                              #Flag changes has occured
+
+        if changed:                     
+            self.updateFilter()                             #Recompute relic filter
+
+    def updateFilter(self):
+        pass
+
+    #Returns jnp.array of values that are in 'positions' but not in 'self.values'
+    def candidates(self,positions):
+        dims = jnp.maximum(self.values.max(0),positions.max(0))+1
+        return positions[~jnp.isin(jnp.ravel_multi_index(positions.T,dims),jnp.ravel_multi_index(self.values.T,dims))]
 
 if __name__ == "__main__":
+    #jorgen()
 
-    # #Branch out to avoid any more GIT HASSLE
-    # if socket.gethostname() == "MSI":
-    #     jorgen()
-    # else:
-    
-    #morten()
-    #test()
-    jorgen()
+    seen = RelicFilter()
+    seen(jnp.array([[8,4]]))
+    seen(jnp.array([[7,3]]))
+    seen(jnp.array([[8,4],[7,3]]))
+
+    #print(seen.reliclist)
+
+#get elements that are in a bot not in b
+def candidates(A,B):
+    dims = jnp.maximum(B.max(0),A.max(0))+1
+    return A[~jnp.isin(jnp.ravel_multi_index(A.T,dims),jnp.ravel_multi_index(B.T,dims))]
+
+    #from utils import prmap
+    #map = jnp.zeros((24,24))
+    #map = map.at[2,2].set(1)
+    #prmap(map)
+
+a = jnp.array([
+    [0,0],
+    [1,0],
+    [0,1],
+    [1,1]
+])
+
+b = jnp.array([
+    [0,0],
+    [1,0],   
+    [1,1]
+])
+
+#print(candidates(a,b))
+
+print("Union of two arrays", jnp.union1d(a, b))
