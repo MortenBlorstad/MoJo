@@ -1,7 +1,9 @@
-from world.base_component import base_component
+from base_component import base_component
 import jax
 import jax.numpy as jnp
 import numpy as np
+from typing import Tuple,List
+
 
 
 def get_symmetric_coordinates(indecies, nrows = 24, ncols = 24):
@@ -23,8 +25,20 @@ def get_symmetric_coordinates(indecies, nrows = 24, ncols = 24):
 
 
 class Nebula(base_component):
+    """
+        This class learns the drift speed for nebula and astroid and keeps track of their positions. Can be used to predict future positions.
 
-    def __init__(self, horizon, name:str = "nebula"):
+        This class can be used for both nebula and astroid. 
+
+    """
+
+    def __init__(self, horizon:int, name:str = "nebula"):
+        """
+           Args:
+            horizon (int): The raw observation dictionary provided by the game environment.
+            name (str): identifier is it track 'nebula' or 'astroid'.
+
+        """
         super().__init__()
         self.horizon = horizon
         #self.map = jnp.zeros((1+horizon,24,24))
@@ -40,7 +54,7 @@ class Nebula(base_component):
         self.direction:float = 0.0
         self.name = name
 
-    def _move_astroid_or_nebula(self, map_object,steps):
+    def _move_astroid_or_nebula(self, map_object: jnp.ndarray,steps:int)->jnp.ndarray:
         """
             Shift objects around in space
             Move the nebula tiles in state.map_features.tile_types up by 1 and to the right by 1
@@ -66,13 +80,13 @@ class Nebula(base_component):
         )
         return new_map
 
-    def round_down_to_nearest_100(self,step):
+    def round_down_to_nearest_100(self,step:int)->int:
         return (step // 100) * 100
     
-    def should_check(self,step):
+    def should_check(self,step:int)->bool:
         return (step - self.round_down_to_nearest_100(step)) in self.change_steps_set
     
-    def get_found_unique(self, value):
+    def get_found_unique(self, value:float)->Tuple[bool,float]:
         value = value - self.round_down_to_nearest_100(value)
         if value % 10 != 0:
             return True, 0.15
@@ -81,7 +95,7 @@ class Nebula(base_component):
         return False, 0.0
         
 
-    def update_change_rate(self,current_step):
+    def update_change_rate(self,current_step:int)->None:
         if not self.found_unique:
             self.found_unique, self.found_unique_value = self.get_found_unique(current_step)
         
@@ -89,14 +103,14 @@ class Nebula(base_component):
             new_rate = self.found_unique_value
         else:
             
-            print("current", current_step, "previous_observed_change", self.previous_observed_change)
+            #print("current", current_step, "previous_observed_change", self.previous_observed_change)
             new_rate = 1/(current_step - self.previous_observed_change)
         if self.previous_observed_change ==0:
             self.change_rate = new_rate
         else:
             self.change_rate = np.round(0.7*self.change_rate + 0.3*new_rate,4)
 
-    def closest_change_rate(self,change_rate, possible_rates=[0.15, 0.1, 0.05, 0.025]):
+    def closest_change_rate(self,change_rate:float, possible_rates:List[float]=[0.15, 0.1, 0.05, 0.025]):
         """
         Selects the closest value from the list of possible change rates to the given change_rate.
         
@@ -109,7 +123,7 @@ class Nebula(base_component):
         """
         return min(possible_rates, key=lambda x: abs(x - change_rate))
 
-    def detect_obstacle_entry(self,state, next_state):
+    def detect_obstacle_entry(self,state:jnp.ndarray, next_state:jnp.ndarray):
         """
         Detects obstacles entering the grid from:
         - Enters from bottom row or first column: (-1,1)
@@ -144,7 +158,7 @@ class Nebula(base_component):
 
         return (False, None)
     
-    def detect_obstacle_leaving(self, state, next_state):
+    def detect_obstacle_leaving(self, state:jnp.ndarray, next_state:jnp.ndarray)->Tuple[bool,Tuple[int,int]]:
         """
         Detects obstacles leaving the grid from:
         - Top row or last column if direction is (-1,1)
@@ -186,7 +200,7 @@ class Nebula(base_component):
         return (False, None)
         
     
-    def normalize_signs_jnp(self, arr):
+    def normalize_signs_jnp(self, arr:jnp.ndarray)->jnp.ndarray:
         """
         Replaces all values in each column with the most common sign in that column using JAX.
 
@@ -217,7 +231,7 @@ class Nebula(base_component):
         self.map = self.map.at[symetry_ones_or_zeroes].set(self.map[ones_or_zeroes])
 
 
-    def learn(self, observation, observable, current_step, prev_change_step):
+    def learn(self, observation:jnp.ndarray, observable:jnp.ndarray, current_step:jnp.ndarray, prev_change_step:jnp.ndarray)->bool:
         """
             check whether nebula_tile_drift_speed in one of the following values {-0.5: move up-right every other step,-0.25: move up-right every 4th step,0.25: move down-left every 4th step,0.5 move down-left every second step}
             obs: (5x24,24) four time steps of nebula positions, (current_step-5, current_step-3, current_step-2, current_step-1, current_step) current time step + 4 previous
@@ -292,11 +306,11 @@ class Nebula(base_component):
             self.update_change_rate(current_step)
             
             self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
-            print(current_step, self.get_found_unique(current_step))
-            print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}")    
+            #print(current_step, self.get_found_unique(current_step))
+            #print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}")    
 
         if not np.any(delta == -1) and not (entering or leaving):
-            print(f"no change detected at change step {current_step}")
+            #print(f"no change detected at change step {current_step}")
             self.prev_observation = observation
             self.prev_observable = observable
             self.prev_step = current_step
@@ -352,8 +366,8 @@ class Nebula(base_component):
             
             self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
             #print(current_step, self.nebula_tile_drift_speed, direction*self.change_rate)
-            print(f"Change detected at change step {current_step}. Nebula speed is {self.nebula_tile_drift_speed}")    
-            print(self.get_found_unique(current_step))
+            #print(f"Change detected at change step {current_step}. Nebula speed is {self.nebula_tile_drift_speed}")    
+            #print(self.get_found_unique(current_step))
 
 
 
@@ -384,7 +398,7 @@ class Nebula(base_component):
 
 
     
-    def handle_rollovers(self,arr):
+    def handle_rollovers(self,arr:jnp.ndarray)->jnp.ndarray:
         """
         Adjusts values in an array where abs(value) > 1 by flipping the sign of the entire column.
         
@@ -401,7 +415,7 @@ class Nebula(base_component):
             return arr
         # Identify indices where |value| > 1 (i.e., need to be fixed)
         arr = jnp.array(arr,dtype=jnp.float32)
-        print(arr)
+
         need_fix = jnp.where(jnp.abs(arr) >1)
 
         rows = need_fix[0] - need_fix[0]
@@ -421,7 +435,7 @@ class Nebula(base_component):
         arr = arr.at[next_need_fix].set(next_values)
         return arr
 
-    def predict(self,observation, observable,current_step):
+    def predict(self,observation:jnp.ndarray, observable:jnp.ndarray,current_step:int)->List[jnp.ndarray]:
 
         predictions = []
         # self.map = self.map.at[observable==1].set(observation[observable==1])
@@ -439,7 +453,7 @@ class Nebula(base_component):
 if __name__ == "__main__":
     
 
-    def detect_obstacle_entry_leaving():
+    def test_detect_obstacle_entry_leaving():
         # Example 1: entering (1,-1)
         state1 = jnp.array([ 
             [ 0,  0,  1, 1],
@@ -528,7 +542,7 @@ if __name__ == "__main__":
             [ 0,  1,  0, 0]
         ],dtype=float)
 
-        nebula = Nebula()
+        nebula = Nebula(3)
         # Run the tests
         print("Example 1")
         print("detect_obstacle_entry:", nebula.detect_obstacle_entry(state1, next_state1))
@@ -555,65 +569,7 @@ if __name__ == "__main__":
         print("detect_obstacle_entry:", nebula.detect_obstacle_entry(state6, next_state6))
         print("detect_obstacle_leaving:", nebula.detect_obstacle_leaving(state6, next_state6))
 
-    def test(nebula_tile_drift_speed):
-        from utils import getObservation
-        from obs_to_state import State
-        seed = 223344
-        step, player, obs, cfg, timeleft = getObservation(seed,0)
-        state = State(obs, "player_0")
-        prev_nebulas = jnp.array(state.nebulas.copy())
-        prev_observable = jnp.array(state.observeable_tiles.copy())
-        def move_astroid_or_nebula(map_object, steps,nebula_tile_drift_speed):
-            """
-                Shift objects around in space
-                Move the nebula tiles in state.map_features.tile_types up by 1 and to the right by 1
-                this is also symmetric nebula tile movement
-                copied from https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/501ada7575b6dc0cf7f0bcbf2558322efcef190f/src/luxai_s3/env.py#L640
-            """
-            
-            new_map = jnp.roll(
-            map_object,
-            shift=(
-                1 * jnp.sign(nebula_tile_drift_speed),
-                -1 * jnp.sign(nebula_tile_drift_speed),
-            ),
-            axis=(0, 1),
-            )
-
-            new_map = jnp.where(
-                steps * nebula_tile_drift_speed % 1 == 0,
-                new_map,
-                map_object,
-                )
-            return new_map
-        nebula = Nebula(3)
-        for step in range(1,42):
-            
-            step, player, obs, cfg, timeleft = getObservation(seed,step)
-            state = State(obs, "player_0")
-            nebulas = jnp.array(state.nebulas.copy())
-            
-            #print(jnp.allclose(nebulas,prediction, atol=1e-6))
-            # if not jnp.allclose(nebulas,prediction, atol=1e-6):
-            #     print(step)
-            #     #print(nebulas)
-            #     #print(prediction)
-            observable = jnp.array(state.observeable_tiles.copy())
-            nebula.learn(nebulas,observable,step-1)
-            prediction = nebula.predict(nebulas,step)
-            print(step,jnp.allclose(nebulas,prediction, atol=1e-6) ,"\n",prediction.T, "\n")
-            prev_nebulas = nebulas
-      
+    test_detect_obstacle_entry_leaving()
 
 
-  
-      
-
-        #Use jnp.allclose to handle potential floating-point inaccuracies
-        assert jnp.allclose(nebula.nebula_tile_drift_speed, nebula_tile_drift_speed, atol=1e-6), \
-            f"Expected {nebula_tile_drift_speed}, but got {nebula.nebula_tile_drift_speed}"
-
-        print(f"Test passed: Detected drift speed = {nebula.nebula_tile_drift_speed}")
-
-    test(-0.05)
  

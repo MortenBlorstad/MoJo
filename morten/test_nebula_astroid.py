@@ -1,5 +1,12 @@
+
+import sys
+import os
+# Get the absolute path of the MoJo directory
+mojo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, mojo_path)  # Ensure it is searched first
+
 from agents.agent import Agent
-#from world.universe import Universe
+
 
 from world.universe import Universe
 
@@ -10,6 +17,8 @@ from world.nebula import Nebula
 from world.nebula_astroid import NebulaAstroid
 import flax
 from agents.agent import Agent
+
+
 
 #####
 # create test env where we have the true state
@@ -63,7 +72,7 @@ def plot_state_comparison(current_step, correct_states, predicted_states, observ
         predicted_states (list of np.array): List of predicted 24x24 grids.
     """
     
-    plots_dir = "MoJo/plots"
+    plots_dir = "MoJo/morten/plots"
     os.makedirs(plots_dir, exist_ok=True)
     fig, axes = plt.subplots(2, 4, figsize=(12, 6))
     observable = np.array(observable,dtype=float)
@@ -117,8 +126,8 @@ def create_gif(seed):
     """
     Combines all saved plots into a GIF and deletes the individual plot images.
     """
-    plots_dir = "MoJo/plots"
-    gif_dir = "MoJo/gif"
+    plots_dir = "MoJo/morten/plots"
+    gif_dir = "MoJo/morten/gif"
     os.makedirs(gif_dir, exist_ok=True)
 
     #gif_filename = os.path.join(gif_dir, "state_comparison.gif")
@@ -166,10 +175,8 @@ actions = {
         "player_0": jnp.ones((16, 3), dtype=int),
         "player_1": jnp.ones((16, 3), dtype=int)
         }
-#env.env_params["nebula_tile_drift_speed"] = -0.05
-#nebula = Nebula(3)
+
 nebula =  NebulaAstroid(3)
-#print(info)
 
 env_cfg = {"max_units":16, "map_width":24, "map_height": 24}
 agent = Agent("player_1",env_cfg)
@@ -207,114 +214,11 @@ for step in range(1,n_steps-4):
                              axis=-1) for i in range(4)]
     
 
-
-
-    
     plot_state_comparison(step, solutions, predictions,observable)
-    #print("current", check_prediction_accuracy(solution, prediction))
-    # if not check_prediction_accuracy(solution, prediction):
-    #     print(solution.T)
-    #     print(prediction.T)
-    # print("\n")
-    # prediction = predictions[1]
-    # solution = episode[step+1]["state"].nebulas
-    
-    # print("next prediction", check_prediction_accuracy(solution, prediction))
-    # if not check_prediction_accuracy(solution, prediction):
-    #     print(solution.T)
-    #     print(prediction.T)
 
-    
-    # print("\n")
-    # prediction = predictions[2]
-    # solution = episode[step+2]["state"].nebulas
-    
-    #print("next next prediction", check_prediction_accuracy(solution, prediction))
-    # if not check_prediction_accuracy(solution, prediction):
-    #     print(solution.T)
-    #     print(prediction.T)
-    
-    # print("\n")
-    # prediction = predictions[3]
-    # solution = episode[step+3]["state"].nebulas
-    
-    # print("next next next prediction", check_prediction_accuracy(solution, prediction))
-    # if not check_prediction_accuracy(solution, prediction):
-    #     print(solution.T)
-    #     print(prediction.T)
-    #print("=====\n")
-    
-#create_gif()
 
 create_gif(seed)
     
  
 
-    # _, _, obs, _, _ = getObservation(seed,step-1)
-    # state = flax.serialization.to_state_dict(info['final_state'])
 
-    # my_state = State(obs, "player_1")
-    # nebulas = jnp.array(my_state.nebulas.copy())
-    # observable = jnp.array(my_state.observeable_tiles.copy())
-    # nebula.learn(nebulas,observable,step-1)
-    # predictions = nebula.predict(nebulas,observable,step-1)
-    # prediction = predictions[1]
-
-    # correct_state = State(state, "player_1")
-    # correct_nebulas = jnp.array(correct_state.nebulas.copy())
-
-    # print(step -1, check_prediction_accuracy(correct_nebulas, prediction))
-    # if not check_prediction_accuracy(correct_nebulas, prediction):
-    #     print(correct_nebulas.T)
-    #     print(prediction.T)
-
-
-
-# all_true = True
-# next_nebulas = None
-# for step in range(1,16):
-#     actions["player_1"] = agent.act(step,obs)
-#     nex_obs, _, _, _, info = env.step(actions)
-#     #print(info.keys())
-#     #print(info['final_state'])
-#     state = flax.serialization.to_state_dict(info['final_state'])
-#     nex_obs = flax.serialization.to_state_dict(nex_obs)["player_1"] 
-#     #print(obs)
-#     print("========")
-#     print(step)
-#     my_state = State(obs, "player_1")
-#     my_next_state = State(nex_obs, "player_1")
-#     nebulas = jnp.array(my_state.nebulas,copy=True)
-#     observable = jnp.array(my_state.observeable_tiles.copy(), copy=True)
-    
-#     nebula.learn(nebulas,observable,step-1)
-#     predictions = nebula.predict(nebulas,observable,step)
-#     next_pred = predictions[1]
-#     state = flax.serialization.to_state_dict(state)
-#     correct_state = State(state, "player_1")
-#     correct_nebulas = jnp.array(correct_state.nebulas, copy=True)
-#     if next_nebulas is not None:
-#         print(check_prediction_accuracy(correct_nebulas, next_pred),env.env_params.nebula_tile_drift_speed, nebula.nebula_tile_drift_speed)
-#         if not check_prediction_accuracy(correct_nebulas, next_pred):
-#             print(correct_nebulas.T)
-#             print(next_pred.T)
-#     print("========")
-#     obs = nex_obs
-#     next_nebulas = correct_nebulas.copy()
-    
-
-    
-    
-#     print(correct_nebulas.T)
-#     print(prediction.T)
-    
-#     if not check_prediction_accuracy(correct_nebulas, prediction):
-#         all_true = False
-#     print(step, check_prediction_accuracy(correct_nebulas, prediction),env.env_params.nebula_tile_drift_speed, nebula.nebula_tile_drift_speed)
-#     print("========\n")
-#     # if not check_prediction_accuracy(correct_nebulas, prediction):
-#     #     print(correct_nebulas.T)
-#     #     print(prediction.T)
-#     #     break
-
-# print(f"passed_test {all_true} and found correct drift_speed {np.round(env.env_params.nebula_tile_drift_speed,2)} {abs(env.env_params.nebula_tile_drift_speed-nebula.nebula_tile_drift_speed)<1e-3}")
