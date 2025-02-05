@@ -12,13 +12,15 @@ import flax
 import flax.serialization
 from world.obs_to_state import State
 import socket
-from world.nebula import Nebula
+
 from world.unitpos import Unitpos
 from world.relic import Relics
+from world.nebula_astroid import NebulaAstroid
+from world.obs_to_state import State
 
 class Universe():
 
-    def __init__(self, player, observation, configuration, horizont = 3, seed = None):
+    def __init__(self, player:str, observation:jnp.ndarray, configuration:dict, horizont:int = 3, seed:int = None):
       
         #The initial observation has this structure
         #-------------------------------------------------------------------------------------------
@@ -69,12 +71,14 @@ class Universe():
         self.thiscore = 0       #Score current step    
 
         # self.relic = Relic()
-        self.nebula = Nebula(self.horizont)
+        self.nebula_astroid = NebulaAstroid(self.horizont)
         self.p1pos = Unitpos(self.horizont)
         self.p2pos = Unitpos(self.horizont)
         self.relics = Relics(self.horizont, self.team_id)
     
     def learnuniverse(self):
+        
+
 
         #Update points
         self.thiscore = self.obsQueue.Last(['team_points', self.team_id])[0] - self.totalscore
@@ -83,7 +87,8 @@ class Universe():
         #self.nebula.learn()
         #self.p1pos.learn(self.obsQueue.Last(['units','position',self.team_id]))
         #self.p2pos.learn(self.obsQueue.Last(['units','position',self.opp_team_id]))
-       
+
+        #self.nebula_astroid.learn()
         self.relics.learn(
             self.obsQueue.Last(['match_steps']),                    #Current time. For debugging.
             self.obsQueue.Last(['relic_nodes']),                    #Position of (visible) relic nodes
@@ -133,38 +138,49 @@ class Universe():
 
 
     #s_{t:t+h} | o_{t}
-    def predict(self, observation, timeleft):
+    def learn_and_predict(self, observation:dict):
 
         #print("Remaining time (Overage) is", timeleft)
-
-        #Add observation to queue
+        state:State = State(observation,self.player)
+        print(state.steps)
         self.obsQueue(observation)
+        
+        self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)
+        
+        self.p1pos.learn(self.obsQueue.Last(['units','position',self.team_id]))
+
+        #self.p2pos.learn(self.obsQueue.Last(['units','position',self.opp_team_id]))
+
+        #timeleft:int = state.remainingOverageTime
+        #Add observation to queue
+        
 
         #Learn universe
-        self.learnuniverse()
-
-        #Predict Nebula here
-        #nebula = .... 
-
-        #Predict Astroid here
-        #astroid = .... 
+        #self.learnuniverse()
+        
+        
+        #Predict Nebula and Astroid here
+        # nebula : list [current, pred_1, ... pred_horizon] 
+        # astroid : list [current, pred_1, ... pred_horizon] 
+        nebula, astroid = self.nebula_astroid.predict(state.nebulas,state.asteroids,
+                                                      state.observeable_tiles, current_step=state.steps)
 
         #Ship positions        
 
         #Demo astroid field, while Morten finishes up        
-        astroidField = jnp.zeros((24,24))
-        astroidPredictions = [astroidField for i in range(self.horizont+1)]
+        #astroidField = jnp.zeros((24,24))
+        #astroidPredictions = [astroidField for i in range(self.horizont+1)]
         #Manually set a value for testing purposes
-        astroidPredictions[1] = astroidPredictions[1].at[2,3].set(.5)
+        #astroidPredictions[1] = astroidPredictions[1].at[2,3].set(.5)
 
         #Predict P1 positions
-        #self.p1pos.predict(astroidPredictions, debug=False)
+        p1pos = self.p1pos.predict(astroid[1:], debug=False)
 
         #Predict P2 positions
-        #self.p2pos.predict(astroidPredictions, debug=False)        
+        #self.p2pos.predict(astroid[1:], debug=False)        
 
         #Predict Relic tiles
-        self.relics.predict()
+        # self.relics.predict()
 
         #Predict Energy
         #energy.precict(...)                
@@ -173,6 +189,7 @@ class Universe():
 
         #Return...
         #return jnp.stack((s1,s2,s3),axis=2)
+        return nebula, astroid, p1pos
         
         
 
@@ -199,150 +216,7 @@ def jorgen():
         #Test universe prediction
         u.predict(obs, timeleft)
 
-#Test function for Morten
-def morten():
 
-    print("Running Mortens tests")
-
-    seed = 223344
-    #u = Universe(player="player_0")
-    #env = LuxAIS3GymEnv(numpy_output=True)                  #Are we using torch? Supported? Maybe stick to jax...
-    #obs, info = env.reset(seed=data['metadata']['seed'])    #Start with seed from dump
-    step, player, obs, cfg, timeleft = getObservation(seed,0)
-    print(player)
-    nebula = Nebula(horizon=3)
-    #observations = jnp.zeros((20,24,24))
-    for t in range(1,42):
-        step, player, obs, cfg, timeleft = getObservation(seed,t)
-        state = State(obs, "player_0")
-        nebulas = jnp.array(state.nebulas.copy())
-        observable = jnp.array(state.observeable_tiles.copy())
-        #print(t, player,"\n", nebulas, "\n\n" )
-        
-        nebula.learn(nebulas,observable, t-1)
-        
-        #observations = observations.at[t-1].set(nebulas)
-    
-    # print(observations[0])
-    # print(observations[1])
-    # print(observations[2])
-    
-    
-    #print(flax.serialization.to_state_dict(env.state))
-    step, player, obs, cfg, timeleft = getObservation(seed,1)
-    
-    state = State(obs, "player_0")
-    # print("player_units_count")
-    # print(state.player_units_count)
-
-    # print("\n nebulas")
-    # print(state.nebulas)
-
-
-def test():
-    import numpy as np
-    def check_prediction_accuracy(correct_nebulas, prediction):
-        # Check if all values where prediction == 1 are also 1 in correct_nebulas
-        condition_1 = jnp.all(correct_nebulas[prediction == 1] == 1)
-
-        # Check if all values where correct_nebulas == 0 are also 0 in prediction
-        condition_2 = jnp.all(prediction[correct_nebulas == 0] == 0)
-
-        # Return True if both conditions are met, otherwise False
-        return condition_1 & condition_2
-    env = LuxAIS3GymEnvCheat() 
-    seed = 223344
-    obs, info = env.reset(seed=seed)
-    actions = {
-            "player_0": jnp.zeros((16, 3), dtype=int),
-            "player_1": jnp.zeros((16, 3), dtype=int)
-            }
-    #env.env_params["nebula_tile_drift_speed"] = -0.05
-    nebula = Nebula(3)
-    print(env.env_params)
-    for step in range(1,22):
-        _, _, _, _, _, state = env.step(actions)
-        _, _, obs, _, _ = getObservation(seed,step)
-        
-        my_state = State(obs, "player_1")
-        nebulas = jnp.array(my_state.nebulas.copy())
-        observable = jnp.array(my_state.observeable_tiles.copy())
-        nebula.learn(nebulas,observable,step-1)
-        prediction = nebula.predict(nebulas,step)
-
-        state = flax.serialization.to_state_dict(state)
-        correct_state = State(state, "player_1")
-        correct_nebulas = jnp.array(correct_state.nebulas.copy())
-
-        print(step -1, check_prediction_accuracy(correct_nebulas, prediction))
-        if not check_prediction_accuracy(correct_nebulas, prediction):
-            print(correct_nebulas.T)
-            print(prediction.T)
-            break
-    
-class RelicFilter():
-
-    def __init__(self):
-        super().__init__()
-        #self.values = jnp.empty((0,2),dtype=jnp.int16)
-        
-        #List of relics we have seen so far
-        self.reliclist = [] 
-    
-    #Process observation of relics. Implemented as __call__ method
-    def __call__(self, relicObs):
-
-        changed = False                                     #Flag: changed or not
-        for el in relicObs.tolist():                        #Iterate relic observations
-            if not el in self.reliclist:                    #Check if already present
-                self.reliclist.append(el)                   #Add observation to list
-                self.reliclist.append([23-el[1],23-el[0]])  #Add symetric observation to list
-                changed = True                              #Flag changes has occured
-
-        if changed:                     
-            self.updateFilter()                             #Recompute relic filter
-
-    def updateFilter(self):
-        pass
-
-    #Returns jnp.array of values that are in 'positions' but not in 'self.values'
-    def candidates(self,positions):
-        dims = jnp.maximum(self.values.max(0),positions.max(0))+1
-        return positions[~jnp.isin(jnp.ravel_multi_index(positions.T,dims),jnp.ravel_multi_index(self.values.T,dims))]
 
 if __name__ == "__main__":
-    #jorgen()
-
-    seen = RelicFilter()
-    seen(jnp.array([[8,4]]))
-    seen(jnp.array([[7,3]]))
-    seen(jnp.array([[8,4],[7,3]]))
-
-    #print(seen.reliclist)
-
-#get elements that are in a bot not in b
-def candidates(A,B):
-    dims = jnp.maximum(B.max(0),A.max(0))+1
-    return A[~jnp.isin(jnp.ravel_multi_index(A.T,dims),jnp.ravel_multi_index(B.T,dims))]
-
-    #from utils import prmap
-    #map = jnp.zeros((24,24))
-    #map = map.at[2,2].set(1)
-    #prmap(map)
-
-a = jnp.array([
-    [0,0],
-    [1,0],
-    [0,1],
-    [1,1]
-])
-
-b = jnp.array([
-    [0,0],
-    [1,0],   
-    [1,1]
-])
-
-#print(candidates(a,b))
-
-print("Union of two arrays", jnp.union1d(a, b))
+    pass
