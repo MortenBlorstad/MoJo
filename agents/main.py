@@ -3,12 +3,11 @@ from typing import Dict
 import sys
 import os
 from argparse import Namespace
-
 import numpy as np
 
 from agent import Agent
 # from lux.config import EnvConfig
-from utils.kit import from_json
+from lux.kit import from_json
 ### DO NOT REMOVE THE FOLLOWING CODE ###
 agent_dict = dict() # store potentially multiple dictionaries as kaggle imports code directly
 agent_prev_obs = dict()
@@ -26,6 +25,13 @@ def agent_fn(observation, configurations):
     remainingOverageTime = observation.remainingOverageTime
     if step == 0:
         agent_dict[player] = Agent(player, configurations["env_cfg"])
+    if "__raw_path__" in configurations:
+        dirname = os.path.dirname(configurations["__raw_path__"])
+    else:
+        dirname = os.path.dirname(__file__)
+
+    sys.path.append(os.path.abspath(dirname))
+
     agent = agent_dict[player]
     actions = agent.act(step, from_json(obs), remainingOverageTime)
     return dict(action=actions.tolist())
@@ -59,7 +65,7 @@ if __name__ == "__main__":
 
 
     NUM_OBS = 75
-    SEED = 123
+    SEED = 129
 
     while True:
         inputs = read_input()
