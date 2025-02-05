@@ -23,20 +23,6 @@ class NebulaAstroid(base_component):
         self.astroid = Nebula(horizon, "astroid")
         self.direction:float = np.inf
 
-
-
-    def round_down_to_nearest_100(self,step:int)->int:
-        return (step // 100) * 100
-    
-    def should_check(self,step:int)->bool:
-        return (step - self.round_down_to_nearest_100(step)) in self.change_steps_set
-
-    def update_change_rate(self,new_rate:float)->None:
-        if self.previous_observed_change ==0:
-            self.change_rate = new_rate
-        else:
-            self.change_rate = np.round(0.7*self.change_rate + 0.3*new_rate,4)
-
     def closest_change_rate(self,change_rate:float, possible_rates:list=[0.15, 0.1, 0.05, 0.025])->float:
         """
         Selects the closest value from the list of possible change rates to the given change_rate.
@@ -56,11 +42,11 @@ class NebulaAstroid(base_component):
     
 
 
-    def learn(self, nebulas,astroids, observable, current_step):
-        print("nebula")
+    def learn(self, nebulas:jnp.ndarray ,astroids:jnp.ndarray , observable:jnp.ndarray , current_step:int)-> bool:
+        #print("nebula")
         observed_change_nebula = self.nebula.learn(nebulas,observable,current_step-1, self.previous_observed_change)
         
-        print("astroid")
+        #print("astroid")
         observed_change_astroid =  self.astroid.learn(astroids, observable, current_step-1, self.previous_observed_change)
         
         
@@ -79,9 +65,9 @@ class NebulaAstroid(base_component):
             self.previous_observed_change = current_step-1
             
             weight = 1/float(observed_change_nebula + observed_change_astroid)
-            print("dir",weight,  (observed_change_nebula*nebula_dir), observed_change_astroid*astroid_dir)
+            #print("dir",weight,  (observed_change_nebula*nebula_dir), observed_change_astroid*astroid_dir)
             self.direction = jnp.sign(weight*(observed_change_nebula*nebula_dir) + weight*(observed_change_astroid*astroid_dir)).item()
-            print(current_step-1,self.direction,observed_change_nebula,observed_change_astroid,(observed_change_nebula * nebula_change_rate),(observed_change_astroid*astroid_change_rate))
+            #print(current_step-1,self.direction,observed_change_nebula,observed_change_astroid,(observed_change_nebula * nebula_change_rate),(observed_change_astroid*astroid_change_rate))
             new_rate = weight*(observed_change_nebula * nebula_change_rate) + weight*(observed_change_astroid*astroid_change_rate)
             self.nebula.change_rate = new_rate
             self.astroid.change_rate = new_rate
@@ -101,15 +87,15 @@ class NebulaAstroid(base_component):
                 self.nebula.direction = astroid_dir
 
             else:
-                print("change_rate", self.change_rate, "direction", self.direction, self.closest_change_rate(self.change_rate))
+                #print("change_rate", self.change_rate, "direction", self.direction, self.closest_change_rate(self.change_rate))
                 self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
         
         
-        print("after",self.nebula_tile_drift_speed,self.nebula.nebula_tile_drift_speed, self.astroid.nebula_tile_drift_speed,
-               self.nebula.change_rate, self.astroid.change_rate,
-                 self.nebula.previous_observed_change,self.astroid.previous_observed_change, self.previous_observed_change,
-                 self.nebula.direction , self.astroid.direction, self.direction 
-                   )
+        # print("after",self.nebula_tile_drift_speed,self.nebula.nebula_tile_drift_speed, self.astroid.nebula_tile_drift_speed,
+        #        self.nebula.change_rate, self.astroid.change_rate,
+        #          self.nebula.previous_observed_change,self.astroid.previous_observed_change, self.previous_observed_change,
+        #          self.nebula.direction , self.astroid.direction, self.direction 
+        #            )
 
 
            
