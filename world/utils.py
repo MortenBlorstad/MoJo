@@ -29,7 +29,10 @@ def fromObsFiltered(obs):
 def fromObsFilteredSwap(obs):
     return fromObsFiltered(obs)[:, [1, 0]]
 
-
+#Returns jnp.array of values that are in 'A' but not in 'B'
+def reduce(A,B):
+    dims = jnp.maximum(B.max(0),A.max(0))+1
+    return A[~jnp.isin(jnp.ravel_multi_index(A.T,dims),jnp.ravel_multi_index(B.T,dims))]
 
 #Agent main.py uses Namespace for parsing the json as observation. Let's do the same.
 def getObsNamespace(file):   
