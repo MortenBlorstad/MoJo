@@ -53,7 +53,7 @@ for step in range(1,n_steps-4):
     obs = episode[step]["obs"]
     state = State(obs,player)
     predictions = universe.learn_and_predict(obs)
-
+    
     solution = jnp.stack([episode[step]["state"].nebulas,episode[step]["state"].asteroids,
                            jnp.clip(episode[step]["state"].player_units_count, a_min =0, a_max = 1)],axis=-1)
     solutions = [jnp.stack([episode[step+i]["state"].nebulas,

@@ -189,7 +189,7 @@ class Universe():
 
         #Return...
         #return jnp.stack((s1,s2,s3),axis=2)
-        return nebula, astroid, p1pos
+        return nebula, astroid , p1pos
         
         
 

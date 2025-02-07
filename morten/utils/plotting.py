@@ -12,6 +12,11 @@ import multiprocessing
 
 white_red_cmap = LinearSegmentedColormap.from_list("white_red", ["white", "red"])
 light_red_deep_red_cmap = LinearSegmentedColormap.from_list("light_red_deep_red_cmap", ["#ffcccb", "red"])  # Deep red
+
+light_deep_purple_cmap = LinearSegmentedColormap.from_list("light_deep_purple_cmap", ["#ece1fa","#4b006e"])  # Deep red
+
+
+
 def check_prediction_accuracy(correct_nebulas, prediction):
     # Identify false positives: places where prediction is 1 but correct state is 0
     false_positives = jnp.any((prediction == 1) & (correct_nebulas == 0))
@@ -53,6 +58,7 @@ def plot_state_comparison(current_step, correct_states, predicted_states, observ
     observable[observable==1]=np.inf
     nebula_predictions = predicted_states[0]
     astroid_predictions = predicted_states[1]
+    
     if len(predicted_states)==3:
         p1_predictions = predicted_states[2]
 
@@ -77,29 +83,42 @@ def plot_state_comparison(current_step, correct_states, predicted_states, observ
 
 
         correct_state[correct_state == 0.0] = np.inf
-        nebula_prediction[nebula_prediction != 1.0] = np.inf
-        astroid_prediction[astroid_prediction == 0.0] = np.inf
         
+        nebula_prediction[nebula_prediction  == 0.0] = np.nan
 
+        not_observed = np.full((24,24), np.inf)
+        not_observed[np.isnan(astroid_prediction)] = 1
+
+        astroid_prediction[astroid_prediction == 0.0] = np.nan
+        
+        
+        
+    
         # Plot correct state (top row)
-        axes[0, i].imshow(1-correct_state[:,:,0], aspect="auto")
+        axes[0, i].imshow(correct_state[:,:,0], aspect="auto", cmap= light_deep_purple_cmap, vmin = 0, vmax=1)
         axes[0, i].imshow(1-correct_state[:,:,1], aspect="auto", cmap = "gray")
         axes[0, i].imshow(correct_state[:,:,2], aspect="auto", cmap = "autumn")
         axes[0, i].set_title(f"Correct - t={current_step+i}")
         #axes[0, i].axis("off")
 
         # Plot predicted state (bottom row)
-        axes[1, i].imshow(1-nebula_prediction, aspect="auto")
-        axes[1, i].imshow(1-astroid_prediction, aspect="auto", cmap="gray", vmin = 0, vmax=1)
+        
+    
+        axes[1, i].imshow(nebula_prediction, aspect="auto",
+                           cmap= light_deep_purple_cmap, vmin = 0, vmax=1)
+        axes[1, i].imshow(1-astroid_prediction, aspect="auto",
+                           cmap="gray", vmin = 0, vmax=1,alpha = 0.7)
+        
+        axes[1, i].imshow(1-not_observed, aspect="auto", cmap="gray", vmin = 0, vmax=1,alpha = 0.05)
         if len(predicted_states)==3:
-            axes[1, i].imshow(p1_prediction.T, aspect="auto", cmap = light_red_deep_red_cmap, vmin=0, vmax=1)
-
-        axes[1, i].imshow(observable/2, aspect="auto", cmap="gray", alpha=0.25, vmin = 0, vmax=1)
-        axes[1, i].set_title(f"Predicted - t={current_step+i}")
-        axes[1, i].scatter(false_positive_indices_nebula[1], false_positive_indices_nebula[0], color="red", marker="x", label="False Positive", s=20)
-        axes[1, i].scatter(false_negative_indices_nebula[1], false_negative_indices_nebula[0], color="blue", marker="s", label="False Negative", s=20)
-        axes[1, i].scatter(false_positive_indices_astroid[1], false_positive_indices_astroid[0], color="red", marker="x", label="False Positive", s=20)
-        axes[1, i].scatter(false_negative_indices_astroid[1], false_negative_indices_astroid[0], color="blue", marker="s", label="False Negative", s=20)
+            axes[1, i].imshow(p1_prediction.T, aspect="auto",
+                               cmap = light_red_deep_red_cmap, vmin=0, vmax=1,alpha = 0.7)
+        # axes[1, i].imshow(observable/2, aspect="auto", cmap="gray", alpha=0.25, vmin = 0, vmax=1)
+        # axes[1, i].set_title(f"Predicted - t={current_step+i}")
+        # axes[1, i].scatter(false_positive_indices_nebula[1], false_positive_indices_nebula[0], color="red", marker="x", label="False Positive", s=20)
+        # axes[1, i].scatter(false_negative_indices_nebula[1], false_negative_indices_nebula[0], color="blue", marker="s", label="False Negative", s=20)
+        # axes[1, i].scatter(false_positive_indices_astroid[1], false_positive_indices_astroid[0], color="red", marker="x", label="False Positive", s=20)
+        # axes[1, i].scatter(false_negative_indices_astroid[1], false_negative_indices_astroid[0], color="blue", marker="s", label="False Negative", s=20)
        
         #axes[1, i].axis("off")
 
