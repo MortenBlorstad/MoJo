@@ -99,7 +99,6 @@ class Unitpos(base_component):
             if(debug):
                 printmap(map,header)            
             l.append(map)
-            map = jnp.where()
 
         #return jnp.stack(l,axis = 0)  
         return l
