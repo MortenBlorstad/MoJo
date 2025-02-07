@@ -1,6 +1,7 @@
 import numpy as np
+import jax.numpy as jnp
 def to_json(obj):
-    if isinstance(obj, np.ndarray):
+    if isinstance(obj, (jnp.ndarray,np.ndarray)):
         return obj.tolist()
     elif isinstance(obj, np.integer):
         return int(obj)

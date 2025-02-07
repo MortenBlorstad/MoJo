@@ -99,6 +99,7 @@ class Unitpos(base_component):
             if(debug):
                 printmap(map,header)            
             l.append(map)
+            map = jnp.where(astroids.T==1, 0, map)
 
         #return jnp.stack(l,axis = 0)  
         return l
