@@ -45,7 +45,6 @@ class Unitpos(base_component):
         #Update values based on astroid probabilities on a given tile
         for idx, a in enumerate(astroids[1:]):
             if(a > 0):
-                a = a.T # transpose to make same as probmaps 
                 reduction = probs[idx+1]*a                
                 probs = probs.at[0].add(reduction)
                 probs = probs.at[idx+1].subtract(reduction)                
@@ -94,11 +93,13 @@ class Unitpos(base_component):
         if(debug):
             printmap(map,'Ship positions (seed 223344) at step 17')        
         for i in range(self.horizon):
-            map = self.probDistribute(map,astroidPredictions[i])
+            astroids = astroidPredictions[i].T
+            map = self.probDistribute(map,astroids)
             header = 'Ship positions (seed 223344) at step 17+' + str(i+1)
             if(debug):
                 printmap(map,header)            
             l.append(map)
+            map = jnp.where(astroids.T==1, 0, map)
 
         #return jnp.stack(l,axis = 0)  
         return l

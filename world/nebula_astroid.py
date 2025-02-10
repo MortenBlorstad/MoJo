@@ -43,6 +43,15 @@ class NebulaAstroid(base_component):
 
 
     def learn(self, nebulas:jnp.ndarray ,astroids:jnp.ndarray , observable:jnp.ndarray , current_step:int)-> bool:
+        if isinstance(nebulas, np.ndarray):
+            nebulas = jnp.array(nebulas)
+
+        if isinstance(astroids, np.ndarray):
+            astroids = jnp.array(astroids)
+
+        if isinstance(observable, np.ndarray):
+            observable = jnp.array(observable)
+
         #print("nebula")
         observed_change_nebula = self.nebula.learn(nebulas,observable,current_step-1, self.previous_observed_change)
         
