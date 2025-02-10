@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import numpy as np
 from typing import Tuple,List
 
-
+from jax import jit
 
 def get_symmetric_coordinates(indecies, nrows = 24, ncols = 24):
     """
@@ -22,7 +22,107 @@ def get_symmetric_coordinates(indecies, nrows = 24, ncols = 24):
     j = indecies[1]
     return ncols-j-1, nrows-i-1  # Swap i and j
 
+# ===============
+## for fast propegation of probability 
+change_steps = jnp.array([7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100])
 
+@jit
+def round_down_to_nearest_100(step:int)->int:
+        return (step // 100) * 100
+
+@jit
+def should_check(step: jnp.ndarray) -> jnp.ndarray:
+    """
+    Checks if the given step(s) should apply a probability shift.
+    
+    Args:
+        step (jnp.ndarray): Array of step values.
+
+    Returns:
+        jnp.ndarray: Boolean indicating if should check along the way.
+    """
+    step_adjusted = step - round_down_to_nearest_100(step)
+    return jnp.any(change_steps[:, None] == step_adjusted,axis=0)
+
+@jit
+def move_probability(carry, i:int)->jnp.ndarray:
+    """
+    Propagates probability in the given state by shifting values in predefined directions.
+
+    Args:
+        carry (tuple): Contains:
+            - pred (jnp.ndarray): The current probability state grid.
+            - step (int): The current step number.
+        i (int): The iteration index.
+
+    Returns:
+        tuple: 
+            - Updated probability state.
+            - Copy of the updated state for visualization.
+    """
+    pred,step,checks = carry
+    moved_up_right = jnp.roll(pred, (-1, 1), axis=(0, 1))     # (-1,1)
+    moved_down_left = jnp.roll(pred, (1, -1), axis=(0, 1))    # (1,-1)
+    moved = should_check(step+i)
+    
+    ## this line should check if there is a true in checks array before current step. must be jit complient
+    checks_masked = jnp.where(jnp.arange(checks.shape[0]) < i, checks, False)
+    denom_factor = jnp.where(jnp.any(checks_masked), 2, 0)
+
+    
+    # Apply movement if the step is in the change_steps list
+    moved_up_right = jnp.where(
+                                moved, # Check if it's time to apply the shift
+                                    moved_up_right, # Apply the shifted map if condition is met (step interval reached)
+                                    pred, # Otherwise, keep the original map unchanged
+                                )
+    moved_down_left = jnp.where(
+                                moved, # Check if it's time to apply the shift
+                                    moved_down_left, # Apply the shifted map if condition is met (step interval reached)
+                                    pred, # Otherwise, keep the original map unchanged
+                                )
+    value = jnp.where(moved, pred / (i + 2),  pred ) # if moved:1 / (i + 2): else: 1
+    remove_mask = (pred>0) & (pred<jnp.inf)
+     
+    mask_up_right = ((0<moved_up_right) & (moved_up_right<jnp.inf)) | ((0<moved_down_left) & (moved_down_left<jnp.inf))
+    pred = jnp.where(remove_mask, 1/(1+denom_factor), pred)
+    pred = jnp.where(mask_up_right , 1/(1+denom_factor), pred)
+    #pred = jnp.where(mask_down_left, 1/(1+moved), pred_new)
+    #pred = pred.at[mask].set(1/(i+2))
+    return (pred,step,checks), pred
+
+@jit
+def set_probs(pred,value, mask,remove_mask):
+    pred = jnp.where(remove_mask, 0, pred)
+    pred = jnp.where(mask, value, pred)
+    return
+    
+
+
+@jit
+def predict_probabilities(state:jnp.ndarray, step:int, iterations: jnp.ndarray):
+    """
+    Predicts probability propagation over multiple iterations using JAX scan.
+
+    Args:
+        state (jnp.ndarray): Initial probability grid.
+        step (int): Initial step number.
+        iterations (int): Number of iterations to simulate.
+
+    Returns:
+        jnp.ndarray: Array of state grids at each iteration. shape (number_of_predictions, 24, 24)
+    """
+    num_iterations = iterations.shape[0]
+    all_states = jnp.zeros((num_iterations +1, 24, 24) )
+    all_states = all_states.at[0].set(state)
+
+    iteration_steps = iterations + step
+
+    checks = should_check(iteration_steps)
+    (final_state, _,_), all_predictions = jax.lax.scan(move_probability, (state, step, checks), iterations)
+    all_states = all_states.at[1:].set(all_predictions)
+    return all_states
+# ===============
 
 class Nebula(base_component):
     """
@@ -48,7 +148,8 @@ class Nebula(base_component):
         self.previous_observed_change:int = 0
         self.change_rate:int = 0
         self.prev_step:int = 0
-        self.map = jnp.ones((24,24))/3
+        self.map = jnp.full((24,24),jnp.nan)#jnp.zeros((24,24)) 
+        #jnp.ones((24,24))/1000
         self.found_unique:bool = False
         self.found_unique_value:float = 0.0
         self.direction:float = 0.0
@@ -435,19 +536,25 @@ class Nebula(base_component):
         arr = arr.at[next_need_fix].set(next_values)
         return arr
 
+    
+
     def predict(self,observation:jnp.ndarray, observable:jnp.ndarray,current_step:int)->List[jnp.ndarray]:
-
-        predictions = []
-        # self.map = self.map.at[observable==1].set(observation[observable==1])
-        # self.map = self.map.at[observable==0].set(observation[observable==0])
-        # self.map = self._move_astroid_or_nebula(self.map, current_step)
-        predictions.append(self.map)
-        prediction = self.map.copy()
-        for i in range(1,self.horizon+1):
-            prediction = self._move_astroid_or_nebula(prediction, current_step+i)
-            predictions.append(prediction)
-
-        return predictions
+        if self.direction ==0 or self.nebula_tile_drift_speed ==0:
+            iterations_array = jnp.arange(1,int(self.horizon+1))
+            prediction = self.map.copy()
+            predictions = predict_probabilities(prediction, current_step, iterations_array)
+            return [pred for pred in predictions]
+        else:
+            predictions = []
+            # self.map = self.map.at[observable==1].set(observation[observable==1])
+            # self.map = self.map.at[observable==0].set(observation[observable==0])
+            # self.map = self._move_astroid_or_nebula(self.map, current_step)
+            predictions.append(self.map)
+            prediction = self.map.copy()
+            for i in range(1,self.horizon+1):
+                prediction = self._move_astroid_or_nebula(prediction, current_step+i)
+                predictions.append(prediction)
+            return predictions
 
 
 if __name__ == "__main__":
