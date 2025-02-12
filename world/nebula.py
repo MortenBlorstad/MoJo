@@ -6,20 +6,21 @@ from typing import Tuple,List
 
 from jax import jit
 
-def get_symmetric_coordinates(indecies, nrows = 24, ncols = 24):
+@jit
+def get_symmetric_coordinates(indices:jnp.array, nrows = 24, ncols = 24):
     """
     Given coordinates (i, j), returns the symmetric coordinates (j, i)
     along the main diagonal of a square grid.
     
     Args:
-        i (int): Row index.
-        j (int): Column index.
+        indices (jnp.ndarray): A tuple or array of row and column indices.
+        nrows (int): Number of rows in the grid.
+        ncols (int): Number of columns in the grid.
     
     Returns:
-        (int, int): Swapped (j, i) coordinates.
+        jnp.ndarray: Array with swapped and transformed (j, i) coordinates.
     """
-    i = indecies[0]
-    j = indecies[1]
+    i, j = indices
     return ncols-j-1, nrows-i-1  # Swap i and j
 
 # ===============
@@ -170,7 +171,7 @@ class Nebula(base_component):
         ),
         axis=(0, 1),  # Apply the shifts to both row (0) and column (1) axes
         )
-       
+        
         # new
         # Conditionally update the map based on drift speed and step count
         #print(steps,(steps - 1) * abs(self.nebula_tile_drift_speed) % 1 > steps * abs(self.nebula_tile_drift_speed) % 1)
@@ -408,7 +409,7 @@ class Nebula(base_component):
             
             self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
             #print(current_step, self.get_found_unique(current_step))
-            #print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}")    
+            #print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}, {entering} {leaving})")    
 
         if not np.any(delta == -1) and not (entering or leaving):
             #print(f"no change detected at change step {current_step}")
@@ -442,8 +443,9 @@ class Nebula(base_component):
             moved_from_indices = jnp.array(jnp.where(delta==-1))
             moved_to_indices = jnp.array(jnp.where(delta==1))
             if moved_from_indices.shape != moved_to_indices.shape:
+           
                 possible_directions = jnp.array([[1, -1], [-1, 1]])  # (row change, column change)
-                directions = [1,-1]
+                directions = [-1, 1]
                 moved_from_plus_dir1 = moved_from_indices + possible_directions[0][:, None]  # Move (1,-1)
                 moved_from_plus_dir2 = moved_from_indices + possible_directions[1][:, None]  # Move (-1,1)
                 matches_dir1 = jnp.sum((moved_from_plus_dir1[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
@@ -456,7 +458,7 @@ class Nebula(base_component):
                 expected_direction_1 = jnp.array([[1], [-1]])  # Down-left movement
                 expected_direction_2 = jnp.array([[-1], [1]])  # Up-right movement
                 # Check if all movements follow the same pattern
-              
+               
                 if jnp.all(directions == expected_direction_1):
                     self.direction  = -1
                 elif jnp.all(directions == expected_direction_2):
