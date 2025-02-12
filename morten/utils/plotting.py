@@ -42,6 +42,49 @@ def pad_image(image, block_size=16):
     padded_image[:h, :w] = image
     return padded_image
 
+
+def plot_state_with_predictions(current_step, predicted_states, observable):
+    plots_dir = "MoJo/morten/plots"
+    os.makedirs(plots_dir, exist_ok=True)
+    fig, axes = plt.subplots(1, 4, figsize=(24, 6))
+    observable = np.array(observable,dtype=float)
+    observable[observable==1]=np.inf
+    nebula_predictions = predicted_states[0]
+    astroid_predictions = predicted_states[1]
+    
+    if len(predicted_states)==3:
+        p1_predictions = predicted_states[2]
+
+    for i in range(4):
+        nebula_prediction = np.array(nebula_predictions[i],dtype=float)
+        astroid_prediction = np.array(astroid_predictions[i],dtype=float)
+        if len(predicted_states)==3:
+            p1_prediction = np.array(p1_predictions[i],dtype=float)
+            p1_prediction[p1_prediction == 0.0] = np.inf
+        
+        nebula_prediction[nebula_prediction  == 0.0] = np.nan
+
+        not_observed = np.full((24,24), np.inf)
+        not_observed[np.isnan(astroid_prediction)] = 1
+
+        astroid_prediction[astroid_prediction == 0.0] = np.nan
+        axes[i].imshow(nebula_prediction, aspect="auto",
+                           cmap= light_deep_purple_cmap, vmin = 0, vmax=1)
+        axes[i].imshow(1-astroid_prediction, aspect="auto",
+                           cmap="gray", vmin = 0, vmax=1,alpha = 0.7)
+        
+        axes[i].imshow(1-not_observed, aspect="auto", cmap="gray", vmin = 0, vmax=1,alpha = 0.05)
+        if len(predicted_states)==3:
+            axes[i].imshow(p1_prediction, aspect="auto",
+                               cmap = light_red_deep_red_cmap, vmin=0, vmax=1,alpha = 0.7)
+       
+        axes[i].set_title(f"Predicted - t={current_step+i}")
+    plt.tight_layout()
+    plot_filename = os.path.join(plots_dir, f"plot_{current_step}.png")
+    plt.savefig(plot_filename)
+    plt.close(fig) 
+
+
 def plot_state_comparison(current_step, correct_states, predicted_states, observable):
     """
     Plots the correct states in the first row and predicted states in the second row.
@@ -96,22 +139,22 @@ def plot_state_comparison(current_step, correct_states, predicted_states, observ
     
         # Plot correct state (top row)
         axes[0, i].imshow(correct_state[:,:,0], aspect="auto", cmap= light_deep_purple_cmap, vmin = 0, vmax=1)
-        axes[0, i].imshow(1-correct_state[:,:,1], aspect="auto", cmap = "gray")
-        axes[0, i].imshow(correct_state[:,:,2], aspect="auto", cmap = "autumn")
+        axes[0, i].imshow(1-correct_state[:,:,1].T, aspect="auto", cmap = "gray")
+        axes[0, i].imshow(correct_state[:,:,2].T, aspect="auto", cmap = "autumn")
         axes[0, i].set_title(f"Correct - t={current_step+i}")
         #axes[0, i].axis("off")
 
         # Plot predicted state (bottom row)
         
     
-        axes[1, i].imshow(nebula_prediction, aspect="auto",
+        axes[1, i].imshow(nebula_prediction.T, aspect="auto",
                            cmap= light_deep_purple_cmap, vmin = 0, vmax=1)
-        axes[1, i].imshow(1-astroid_prediction, aspect="auto",
+        axes[1, i].imshow(1-astroid_prediction.T, aspect="auto",
                            cmap="gray", vmin = 0, vmax=1,alpha = 0.7)
         
-        axes[1, i].imshow(1-not_observed, aspect="auto", cmap="gray", vmin = 0, vmax=1,alpha = 0.05)
+        axes[1, i].imshow(1-not_observed.T, aspect="auto", cmap="gray", vmin = 0, vmax=1,alpha = 0.05)
         if len(predicted_states)==3:
-            axes[1, i].imshow(p1_prediction.T, aspect="auto",
+            axes[1, i].imshow(p1_prediction, aspect="auto",
                                cmap = light_red_deep_red_cmap, vmin=0, vmax=1,alpha = 0.7)
         # axes[1, i].imshow(observable/2, aspect="auto", cmap="gray", alpha=0.25, vmin = 0, vmax=1)
         # axes[1, i].set_title(f"Predicted - t={current_step+i}")

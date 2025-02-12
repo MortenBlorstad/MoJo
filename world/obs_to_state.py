@@ -70,6 +70,7 @@ class State():
         self.energy = np.array(obs["map_features"]["energy"])
 
         self.nebulas = self.get_tile_type(obs["map_features"]["tile_type"],1 )
+        
         self.asteroids = self.get_tile_type(obs["map_features"]["tile_type"],2 )
 
         # added relic node to state. TODO we need to add functionality to add relic tiles
