@@ -117,5 +117,8 @@ class NebulaAstroid(base_component):
 
         nebula_predictions = self.nebula.predict(nebulas,observable, current_step-1)
         astroid_predictions = self.astroid.predict(astroids,observable, current_step-1)
+
+        nebula_predictions = [n.T for n in nebula_predictions]
+        astroid_predictions = [a.T for a in astroid_predictions]
         return nebula_predictions, astroid_predictions
 

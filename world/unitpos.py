@@ -93,13 +93,12 @@ class Unitpos(base_component):
         if(debug):
             printmap(map,'Ship positions (seed 223344) at step 17')        
         for i in range(self.horizon):
-            astroids = astroidPredictions[i].T
-            map = self.probDistribute(map,astroids)
+    
+            map = self.probDistribute(map,astroidPredictions[i])
             header = 'Ship positions (seed 223344) at step 17+' + str(i+1)
             if(debug):
                 printmap(map,header)            
             l.append(map)
-            map = jnp.where(astroids.T==1, 0, map)
 
         #return jnp.stack(l,axis = 0)  
         return l
