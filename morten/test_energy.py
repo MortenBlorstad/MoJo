@@ -10,8 +10,8 @@ from agents.agent import Agent
 from agents.lux.kit import to_json,from_json
 
 from morten.utils.plotting import plot_state_comparison,create_gif
-
-from luxai_s3.wrappers import LuxAIS3GymEnv
+from world.utils import getObservation, getObsNamespace, getPath, from_json
+from world.energy import Energy
 
 import jax.numpy as jnp
 import flax
@@ -20,23 +20,10 @@ from world.universe import Universe
 
 from world.obs_to_state import State
 
-seed = 223344 #223344 #2#
+seed = 123 #223344 #2#
 dump_name = f"MoJo/morten/episode_{seed}.json"
 
 
-def extract_solution(episode, step):
-    full_state = State(episode[str(step)]["state"], "player_1")
-    solution = jnp.stack(
-                            [full_state.nebulas,
-                            full_state.asteroids,
-                            jnp.clip(full_state.player_units_count, a_min =0, a_max = 1)
-                            ],
-                        axis=-1)
-    return solution
-
-def get_solution(episode, step):
-    solutions = [extract_solution(episode,step+i) for i in range(4)]
-    return solutions
 
 def plot_energy(current_step,energy):
     import matplotlib.pyplot as plt
@@ -49,24 +36,42 @@ def plot_energy(current_step,energy):
     plt.savefig(plot_filename)
     plt.close(fig) 
 
+def plot_predictions(current_step,predictions):
+    import matplotlib.pyplot as plt
+    plots_dir = "MoJo/morten/plots"
+    os.makedirs(plots_dir, exist_ok=True)
+    fig,axs = plt.subplots(ncols=len(predictions), figsize=(12, 6))
+    for i,p in enumerate(predictions):
 
-n_steps = 50
-player = "player_1"
-env = LuxAIS3GymEnv( numpy_output = True) 
-obs, info = env.reset(seed=seed)
-config = {"max_units":16, "map_width":24, "map_height": 24}
+        axs[i].imshow(p, cmap="gray")
+        axs[i].set_title(f"step {current_step+(i)}")
+    
+    plot_filename = os.path.join(plots_dir, f"plot_{current_step}.png")
+    plt.tight_layout()
+    plt.savefig(plot_filename)
+    plt.close(fig) 
+
+#create_gif(f"energy_{seed}")
+n_steps = 74
 
 #print(obs.keys())
-universe =  Universe(player,obs,config,3,seed)
 
-with open(dump_name, "r") as infile:
-    episode = from_json(json.load(infile))  # Use json.load() instead of json.loads()
 
-test_dump = {}
+step, player, obs, cfg, timeleft = getObservation(seed,0)
 
-for step in range(1,n_steps-4):
-    obs = episode[str(step)]["obs"]
+universe =  Universe(player,obs,cfg,3,seed)
+energy = Energy(3)
+for step in range(1,n_steps+1):
+    
+    _, _, obs, _, timeleft = getObservation(seed,step)
     state = State(obs,player)
-    full_state = State(episode[str(step)]["state"], "player_1")
-    plot_energy(step,full_state.energy)
+    #print("energy", state.energy.T)
+    energy.learn(step,state.energy,state.player_units_count,state.opponent_units_count, state.observeable_tiles)
+    print(step, energy.energy_node_drift_speed)
+    predictions = energy.predict(step)
+    plot_predictions(step,predictions)
+
+
+create_gif(f"energy_{seed}")
+
 
