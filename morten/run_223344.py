@@ -27,7 +27,36 @@ universe =  Universe(player,obs,cfg,3,seed)
 
 astroid_predictions= {}
 
-for step in range(1,30):
+
+def plot_predictions(current_step,predictions):
+    import matplotlib.pyplot as plt
+    plots_dir = "MoJo/morten/plots"
+    os.makedirs(plots_dir, exist_ok=True)
+    ncols, nrows = predictions.shape[:2] # time, features
+    fig,axs = plt.subplots(ncols=ncols,nrows =nrows , figsize=(12, 3*nrows))
+    for col,p in enumerate(predictions):
+        axs[0,col].imshow(1 -p[0], cmap="gray",vmin = 0, vmax = 1)
+        axs[0,col].set_title(f"nebula step {current_step+(col)}")
+
+        axs[1,col].imshow(1- p[1], cmap="gray",vmin = 0, vmax = 1)
+        axs[1,col].set_title(f"astroids step {current_step+(col)}")
+        
+        axs[2,col].imshow(1-p[2], cmap="gray",vmin = 0, vmax = 1)
+        axs[2,col].set_title(f"unobserved_terrain step {current_step+(col)}")
+
+        axs[3,col].imshow(1-p[3], cmap="gray", vmin = 0, vmax = 1)
+        axs[3,col].set_title(f"pos1 step {current_step+(col)}")
+
+        axs[4,col].imshow(1-p[4], cmap="gray")
+        axs[4,col].set_title(f"energy step {current_step+(col)}")
+    
+    plot_filename = os.path.join(plots_dir, f"plot_{current_step}.png")
+    plt.tight_layout()
+    plt.savefig(plot_filename)
+    plt.close(fig) 
+
+
+for step in range(1,75):
     
     #Get another observation
     _, _, obs, _, timeleft = getObservation(seed,step)
@@ -37,9 +66,12 @@ for step in range(1,30):
 
     # astroids = [a.T for a in predictions[1]]
     # astroid_predictions[step] = astroids
+    plot_predictions(step,predictions)
 
+    #plot_state_with_predictions(step, predictions, state.observeable_tiles)
 
-    plot_state_with_predictions(step, predictions, state.observeable_tiles)
+create_gif(f"predictions_{seed}")
+
 
 # with open(f"MoJo/morten/astroid_predictions_{seed}.json", "w") as outfile:
 #             json.dump(to_json(astroid_predictions), outfile)
