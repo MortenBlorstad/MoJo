@@ -4,6 +4,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import jax.numpy as jnp
+from jax import jit
 import json
 from world.utils import getObservation, getObsNamespace, getPath, from_json
 from world.obsqueue import ObservationQueue
@@ -16,7 +17,15 @@ import socket
 from world.unitpos import Unitpos
 from world.relic import Relics
 from world.nebula_astroid import NebulaAstroid
+from world.energy import Energy
 from world.obs_to_state import State
+
+@jit
+def get_unobserved_terrain(nebulas:jnp.ndarray, astroids:jnp.ndarray)->jnp.ndarray:
+    return jnp.where(jnp.isnan(nebulas) | jnp.isnan(astroids), 1, 0)
+
+
+
 
 class Universe():
 
@@ -75,6 +84,7 @@ class Universe():
         self.p1pos = Unitpos(self.horizont)
         self.p2pos = Unitpos(self.horizont)
         self.relics = Relics(self.horizont, self.team_id)
+        self.energy = Energy(self.horizont)
     
     def learnuniverse(self):
         
@@ -146,6 +156,8 @@ class Universe():
         self.obsQueue(observation)
         
         self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)
+        self.energy.learn(current_step=state.steps, observation=state.energy,
+                          pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
         
         self.p1pos.learn(self.obsQueue.Last(['units','position',self.team_id]))
 
@@ -162,8 +174,21 @@ class Universe():
         #Predict Nebula and Astroid here
         # nebula : list [current, pred_1, ... pred_horizon] 
         # astroid : list [current, pred_1, ... pred_horizon] 
-        nebula, astroid = self.nebula_astroid.predict(state.nebulas,state.asteroids,
+        nebulas, astroids = self.nebula_astroid.predict(state.nebulas,state.asteroids,
                                                       state.observeable_tiles, current_step=state.steps)
+        
+        nebulas = jnp.array(nebulas)
+        astroids = jnp.array(astroids)
+
+        energies =  self.energy.predict(current_step=state.steps)
+
+        unobserved_terrain = get_unobserved_terrain(nebulas,astroids)
+
+        #fill nans for nebulas & astroids. OBS: important to this after get_unobserved_terrain as nan == unobserved_terrain
+        nebulas = jnp.where(jnp.isnan(nebulas), 0,  nebulas)
+        astroids = jnp.where(jnp.isnan(astroids), 0,  astroids)
+
+
 
         #Ship positions        
 
@@ -174,7 +199,7 @@ class Universe():
         #astroidPredictions[1] = astroidPredictions[1].at[2,3].set(.5)
 
         #Predict P1 positions
-        p1pos = self.p1pos.predict(astroid[1:], debug=False)
+        p1pos = self.p1pos.predict(astroids[1:], debug=False)
 
         #Predict P2 positions
         #self.p2pos.predict(astroid[1:], debug=False)        
@@ -189,7 +214,11 @@ class Universe():
 
         #Return...
         #return jnp.stack((s1,s2,s3),axis=2)
-        return nebula, astroid , p1pos
+        stacked_array = jnp.stack([nebulas, astroids, unobserved_terrain, jnp.array(p1pos),jnp.array(energies)], axis=1) #shape (timestep, #features, 24, 24)
+        print(stacked_array.shape)
+
+
+        return stacked_array
         
         
 

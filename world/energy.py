@@ -131,7 +131,6 @@ def reset_map(value:int, drift:int,map:jnp.ndarray)->jnp.ndarray:
     value = jnp.where(value <= 100, value, value - round_down_to_nearest_100(value))
     value= value-2
     should_reset = (value - 1) * abs(0.03) % 1 > value * abs(0.03) % 1
-    print(value,should_reset)
     return lax.cond(should_reset, lambda: jnp.full((24,24),jnp.nan),lambda: map) 
     
 
@@ -215,7 +214,7 @@ class Energy(base_component):
         self.found_unique,self.found_unique_value,self.change_rate =  update_change_rate(current_step, self.found_unique,
                                                                                         self.found_unique_value, self.change_rate,
                                                                                         self.previous_observed_change)  
-        print(self.change_rate)
+        
         self.energy_node_drift_speed = closest_change_rate(self.change_rate)
         self.map = reset_map(current_step, self.energy_node_drift_speed, self.map)
         self.map = jnp.where((observable==1) & ~effected_mask, observation, self.map )  
@@ -241,7 +240,6 @@ class Energy(base_component):
         predictions = []
         prediction = self.map.copy()
         predictions.append(prediction)
-        print(self.energy_node_drift_speed)
         for i in range(1,self.horizon+1):
             if self.should_reset(current_step+i):
                 prediction = jnp.full((24,24), np.nan)
