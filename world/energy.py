@@ -244,7 +244,7 @@ class Energy(base_component):
             if self.should_reset(current_step+i):
                 prediction = jnp.full((24,24), np.nan)
             predictions.append(prediction)
-        return [p.T for p in predictions]
+        return jnp.array([p.T for p in predictions])
 
 
     

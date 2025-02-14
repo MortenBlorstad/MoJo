@@ -102,4 +102,4 @@ class Unitpos(base_component):
             l.append(map)
 
         #return jnp.stack(l,axis = 0)  
-        return l
+        return jnp.array(l)
