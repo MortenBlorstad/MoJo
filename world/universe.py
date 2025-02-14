@@ -56,7 +56,6 @@ class Universe():
         #
         #-------------------------------------------------------------------------------------------
 
-
         #The observable parameters
         self.configuration = configuration
 
@@ -83,76 +82,14 @@ class Universe():
         self.nebula_astroid = NebulaAstroid(self.horizont)
         self.p1pos = Unitpos(self.horizont)
         self.p2pos = Unitpos(self.horizont)
-        self.relics = Relics(self.horizont, self.team_id)
+        self.relics = Relics()
         self.energy = Energy(self.horizont)
-    
-    def learnuniverse(self):
-        
-
-
-        #Update points
-        self.thiscore = self.obsQueue.Last(['team_points', self.team_id])[0] - self.totalscore
-        self.totalscore += self.thiscore
-
-        #self.nebula.learn()
-        #self.p1pos.learn(self.obsQueue.Last(['units','position',self.team_id]))
-        #self.p2pos.learn(self.obsQueue.Last(['units','position',self.opp_team_id]))
-
-        #self.nebula_astroid.learn()
-        self.relics.learn(
-            self.obsQueue.Last(['match_steps']),                    #Current time. For debugging.
-            self.obsQueue.Last(['relic_nodes']),                    #Position of (visible) relic nodes
-            self.obsQueue.Last(['relic_nodes_mask']),               #List (bool) of nodes visible or not
-            self.thiscore,                                          #How many points we scored               
-            self.obsQueue.Last(['units', 'position', self.team_id]) #The whereabouts of our mighty fleet
-        )
-
-        #predict parameters here
-        pass
-        #relic.learn()    
-        #ToDo:
-        #flax.serialization.from_state_dict(obs, raw_state_dict)
-            #-> Lage noen demo obs for å teste koden vår
-
-        #Nebula - Kan lese state direkte -> env.step(actioen=Empty) vil gi oss neste HORIZON states
-        #Astriod    -||-
-        #Observable Tile - Lese fra OBS - Bare stacke state, ikke HORIZON
-        #Relic      -||-
-        #Energy     Hva er void? Vi må uansett holde styr på energy per tile
-            #Holde styr på energy per tile
-            #Holde styr på motstander units
-            #Estimere effektiv energy per tile for s_t:t+H
-        
-        #
-        #Energy per unit - id,
-
-        #Egne units: ProbProp, men ta hensyn til astriods
-        #Mostander units: ProbProp, men ta hensyn til astriods
-        #ProbProp må ta Astriod som parameter
-
-        #Class Agent:
-
-        #U = Universe(....)
-        #P = Policies(...)      #Policy for battle, transition,....
-        #act():
-            #s_t:t+H, OT, Relic, P1_pos, P1_nrg = u.predict(obs)
-
-            #Mission control
-            #Lage mission per unit
-
-            #for hvert skip:
-                #getAction(m,s_t:t+H,pos[unitId],energy[unitId])
-
-            #return list of actions
-
-
 
     #s_{t:t+h} | o_{t}
-    def learn_and_predict(self, observation:dict):
+    def predict(self, observation:dict):
 
-        #print("Remaining time (Overage) is", timeleft)
-        state:State = State(observation,self.player)
-        print(state.steps)
+        #Create state from observation
+        state:State = State(observation,self.player)        
         self.obsQueue(observation)
         
         self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)
@@ -160,66 +97,40 @@ class Universe():
                           pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
         
         self.p1pos.learn(self.obsQueue.Last(['units','position',self.team_id]))
+        self.p2pos.learn(self.obsQueue.Last(['units','position',self.opp_team_id]))
 
-        #self.p2pos.learn(self.obsQueue.Last(['units','position',self.opp_team_id]))
+        #Update points
+        self.thiscore = self.obsQueue.Last(['team_points', self.team_id])[0] - self.totalscore
+        self.totalscore += self.thiscore
 
-        #timeleft:int = state.remainingOverageTime
-        #Add observation to queue
-        
-
-        #Learn universe
-        #self.learnuniverse()
-        
+        #Learn relic tiles
+        self.relics.learn(
+            self.obsQueue.Last(['relic_nodes']),                    #Position of (visible) relic nodes            
+            self.thiscore,                                          #How many points we scored               
+            self.obsQueue.Last(['units', 'position', self.team_id]) #The whereabouts of our mighty fleet
+        )              
         
         #Predict Nebula and Astroid here
-        # nebula : list [current, pred_1, ... pred_horizon] 
-        # astroid : list [current, pred_1, ... pred_horizon] 
-        nebulas, astroids = self.nebula_astroid.predict(state.nebulas,state.asteroids,
-                                                      state.observeable_tiles, current_step=state.steps)
+        nebulas, astroids = self.nebula_astroid.predict(state.nebulas,state.asteroids, state.observeable_tiles, current_step=state.steps)
         
-        nebulas = jnp.array(nebulas)
-        astroids = jnp.array(astroids)
-
-        energies =  self.energy.predict(current_step=state.steps)
-
+        #OBS: get unobserved_terrain before calling nan_to_num on nebulas & astr0oids. (nan == unobserved_terrain)
         unobserved_terrain = get_unobserved_terrain(nebulas,astroids)
 
-        #fill nans for nebulas & astroids. OBS: important to this after get_unobserved_terrain as nan == unobserved_terrain
-        nebulas = jnp.where(jnp.isnan(nebulas), 0,  nebulas)
-        astroids = jnp.where(jnp.isnan(astroids), 0,  astroids)
+        #Create list of predictions
+        predictions = [jnp.nan_to_num(nebulas), jnp.nan_to_num(astroids), unobserved_terrain]
 
-
-
-        #Ship positions        
-
-        #Demo astroid field, while Morten finishes up        
-        #astroidField = jnp.zeros((24,24))
-        #astroidPredictions = [astroidField for i in range(self.horizont+1)]
-        #Manually set a value for testing purposes
-        #astroidPredictions[1] = astroidPredictions[1].at[2,3].set(.5)
-
-        #Predict P1 positions
-        p1pos = self.p1pos.predict(astroids[1:], debug=False)
-
-        #Predict P2 positions
-        #self.p2pos.predict(astroid[1:], debug=False)        
+        #Add player position predictions
+        predictions.append(self.p1pos.predict(astroids[1:]))
+        predictions.append(self.p2pos.predict(astroids[1:]))     
 
         #Predict Relic tiles
-        # self.relics.predict()
+        predictions.append(self.relics.predict())
 
         #Predict Energy
-        #energy.precict(...)                
-        
-        #print("Done predicicting future")
-
-        #Return...
-        #return jnp.stack((s1,s2,s3),axis=2)
-        stacked_array = jnp.stack([nebulas, astroids, unobserved_terrain, jnp.array(p1pos),jnp.array(energies)], axis=1) #shape (timestep, #features, 24, 24)
+        predictions.append(self.energy.predict(current_step=state.steps)) 
+        stacked_array = jnp.concat(predictions)
         print(stacked_array.shape)
-
-
-        return stacked_array
-        
+        return stacked_array  
         
 
 #Test function for Jørgen
@@ -236,16 +147,13 @@ def jorgen():
     #Create a fixed seed universe
     u = Universe(player,obs,cfg,horizont=3, seed=seed)
 
-    for i in range(1,30):
+    for i in range(1,3):
         
         #Get another observation
-        _, _, obs, _, timeleft = getObservation(seed,i)
-        
+        _, _, obs, _, timeleft = getObservation(seed,i)        
 
         #Test universe prediction
-        u.predict(obs, timeleft)
-
-
+        u.predict(obs)
 
 if __name__ == "__main__":
-    pass
+    jorgen()
