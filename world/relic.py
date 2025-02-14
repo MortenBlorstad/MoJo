@@ -77,11 +77,10 @@ class SymList():
 
 class Relics(base_component):
 
-    def __init__(self, horizon):
+    def __init__(self):
         super().__init__()
 
-        #Standard Lux stuff
-        self.horizon = horizon        
+        #Standard Lux stuff     
         self.mapsize = (24,24)
 
         #Relics time
@@ -93,11 +92,8 @@ class Relics(base_component):
         #Initial map        
         self.map = self.eqset.compute(self.empty,self.relics)
 
-    def learn(self, step, relicPositions, points, shipPos):        
+    def learn(self, relicPositions, points, shipPos):        
        
-        #Time and points
-        #step = step[0]
-        match, matchstep = divmod(step, 100)        
         points = int(points)
 
         flagCompute = False
@@ -160,13 +156,7 @@ class Relics(base_component):
         #To we need to recompute the map?
         if flagCompute:            
             self.map = self.eqset.compute(self.empty, self.relics)
-        '''
-        if step == 199:
-            print("Fixed relic list is now length", len(self.relics))
-            print(self.relics.values)
-            print("------------------------------------------------------")
-            self.eqset.pp()
-        '''
+
 
     def predict(self):
         return self.map
