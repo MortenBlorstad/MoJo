@@ -1,6 +1,4 @@
 from world.base_component import base_component
-from world.utils import printmap
-import jax
 import jax.numpy as jnp
 
 class Unitpos(base_component):
@@ -83,23 +81,15 @@ class Unitpos(base_component):
         #Save map to memory
         self.map = self.getMap(jnp.array(shipPositions[0]))
 
-    def predict(self, astroidPredictions, debug = False):
+    def predict(self, astroidPredictions):
 
         #In case we wan't to keep the current map in memory
         map = self.map.clone()
 
         l = []
-        l.append(map)
-        if(debug):
-            printmap(map,'Ship positions (seed 223344) at step 17')        
+        l.append(map)       
 
-        for i in range(self.horizon):            
-
-            map = self.probDistribute(map,astroidPredictions[i])
-            header = 'Ship positions (seed 223344) at step 17+' + str(i+1)
-            if(debug):
-                printmap(map,header)            
-            l.append(map)
-
-        #return jnp.stack(l,axis = 0)  
+        for i in range(self.horizon):
+            map = self.probDistribute(map,astroidPredictions[i])           
+            l.append(map) 
         return jnp.array(l)

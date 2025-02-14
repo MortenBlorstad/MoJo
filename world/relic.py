@@ -159,4 +159,4 @@ class Relics(base_component):
 
 
     def predict(self):
-        return self.map
+        return self.map[jnp.newaxis,:]

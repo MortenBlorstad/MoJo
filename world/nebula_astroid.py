@@ -107,9 +107,7 @@ class NebulaAstroid(base_component):
         #            )
 
 
-           
-  
-        
+   
     def predict(self,nebulas,astroids, observable,current_step):
         # update nebula_tile_drift_speed
         self.nebula.nebula_tile_drift_speed = self.nebula_tile_drift_speed
@@ -120,5 +118,5 @@ class NebulaAstroid(base_component):
 
         nebula_predictions = [n.T for n in nebula_predictions]
         astroid_predictions = [a.T for a in astroid_predictions]
-        return nebula_predictions, astroid_predictions
+        return jnp.array(nebula_predictions), jnp.array(astroid_predictions)
 
