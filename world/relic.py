@@ -1,112 +1,172 @@
 from world.base_component import base_component
-from world.utils import printmap, fromObs, fromObsFiltered, fromObsFilteredSwap
-
-#import jax
+from world.utils import fromObsFilteredSwap, reduce, symmetric, pointreduce
+from world.relictools import EquationSet
 import jax.numpy as jnp
+                
+#Some notes / ToDo
+#------------------------------------------------------------------------------
+#Odd case t = 71 for seed 223344
+#Insert symmetric equations?
+#Cleanup these functions :
 
-class TrackMap():
+def emptycandidates(values, positions):
+    if len(values) == 0:
+        return positions
+    return reduce(positions,values)
+    
+def relicnodecandidates(values, cand):
+    l = []
+    for r in values:
+        l.append(
+            cand[jnp.where(
+                (cand[:,0] >= r[0]-2) & 
+                (cand[:,0] <= r[0]+2) &
+                (cand[:,1] >= r[1]-2) & 
+                (cand[:,1] <= r[1]+2)
+            )]
+        )                
+    return jnp.unique(jnp.concatenate(l),axis=0)
+#---------------------------------------------------
 
-    def __init__(self, symmetric = False):
+#Wrapper around list for handling symmetric insertion
+class SymList():
+
+    #Constructor
+    def __init__(self):
         super().__init__()
-        self.symmetric = symmetric
         self.reset()
 
-    def reset(self):
-        self.values = jnp.empty((0,2),dtype=jnp.int16)
+    #Implement a reset function for removing all values
+    def reset(self):        
+        #List of the stuff we are storing
+        self.values = [] 
 
-    #Add observation to jnp array. Implemented as __call__ method
-    def __call__(self, obs1):
+    #Process symmetric insert. Implemented as __call__ method
+    def __call__(self, entries):
+        
+        #Keep track of changes
+        changed = False
 
-        if self.symmetric:
-            obs2 = obs1.copy()
-            obs2 = obs2.at[:,0].set(23 - obs1[:,1])
-            obs2 = obs2.at[:,1].set(23 - obs1[:,0])
+        #Convert to list
+        if isinstance(entries, jnp.ndarray):
+            entries = entries.tolist()
 
-            #Keep jnp array of the relic positions seen so far
-            self.values = jnp.unique(jnp.concatenate((self.values, obs1, obs2), axis=0),axis=0)
-        else:
-            self.values = jnp.unique(jnp.concatenate((self.values, obs1), axis=0),axis=0)
+        #Inserts
+        for el in entries:                              #Iterate observations
+            if not el in self.values:                   #Check if already present
+                self.values.append(el)                  #Add observation to list
+                self.values.append(symmetric(el))       #Add symetric observation to list
+                changed = True
+        return changed
 
-    #Returns jnp.array of values that are in 'positions' but not in 'self.values'
-    def candidates(self,positions):
-        dims = jnp.maximum(self.values.max(0),positions.max(0))+1
-        return positions[~jnp.isin(jnp.ravel_multi_index(positions.T,dims),jnp.ravel_multi_index(self.values.T,dims))]
-
+    #Implement len(...)
+    def __len__(self):
+        return len(self.values)
+    
+    #Values as a jnp.array
+    def tojnp(self):
+        return jnp.array(self.values)
+    
+    #item in collection?
+    def has(self,object):
+        return object in self.values
+    
+    #Debug
+    def pp(self):
+        print(self.values)
 
 class Relics(base_component):
 
-    def __init__(self, horizon, team_id):
+    def __init__(self, horizon):
         super().__init__()
+
+        #Standard Lux stuff
         self.horizon = horizon        
         self.mapsize = (24,24)
-        self.seenRelics = TrackMap(symmetric=True)
-        self.emptyTiles = TrackMap()
-        self.team_id = team_id
-        self.numRelicNodes = 0
 
+        #Relics time
+        self.nodes = SymList()                  #Wrapper around a list of relic nodes that we have seen
+        self.empty = SymList()                  #Wrapper around a list of tiles that are confirmed empty        
+        self.relics = SymList()                 #Wrapper around a list of tiles that are confirmed relic tiles
+        self.eqset = EquationSet(self.mapsize)  #Implementation of filter/solver of ambiguous observations
 
-    def learn(self, t, relicPositions, relicMask, points, shipPos):        
+        #Initial map        
+        self.map = self.eqset.compute(self.empty,self.relics)
+
+    def learn(self, step, relicPositions, points, shipPos):        
        
-        #Current time step
-        t = t[0]
+        #Time and points
+        #step = step[0]
+        match, matchstep = divmod(step, 100)        
+        points = int(points)
 
-        #Update list of observed relicnodes : Filter empty values & swap y/x        
-        self.seenRelics(fromObsFilteredSwap(relicPositions))
+        flagCompute = False
+        flagFilter = False
 
-        #Keep track of how many visible relic nodes there are        
-        relicCount = jnp.where(fromObs(relicMask))[0].shape[0]
+        #Update list of observed relicnodes : Filter empty values & swap y/x
+        if self.nodes(fromObsFilteredSwap(relicPositions)):            
+            self.empty.reset()
+            self.eqset.reset()            
+            flagCompute = True            
 
-        if relicCount > self.numRelicNodes:
-            print("Wow, num relic nodes changed to ", relicCount, "at timestep",t)
-            self.numRelicNodes = relicCount
-
-            #Reset the self.emptyTiles TrackMap here...
-            
-        if self.numRelicNodes > 0:
-            shipPos = fromObsFilteredSwap(shipPos)
-            if points == 0:
-                #We scored zero, so no relic tile was visited
-                print("We have relics at time ",t,", but no points scored.",sep='')
-                self.emptyTiles(shipPos)
-            else:
-                print("We have relics at time ",t,". We scored ",points," points",sep='')
-                print()
-                print("Empty tiles")
-                print(self.emptyTiles.values)
-                print()
-                print("Ship positions")
-                print(shipPos)
-                print()
-                print("Candidates (instersect)")
-                cand = self.emptyTiles.candidates(shipPos)
-                print(cand)
-                print()
-
-                #for r in self.seenRelics.values:
-                r = self.seenRelics.values[0]
-                print("Relic looks like this")
-                print(r)
-                fcand = cand[jnp.where(
-                    (cand[:,0] >= r[0]-2) & 
-                    (cand[:,0] <= r[0]+2) &
-                    (cand[:,1] >= r[1]-2) & 
-                    (cand[:,1] <= r[1]+2)
-                )]
-                print("filtered candidates")
-                print(fcand)
-                
+        #Get filter observation with jnp indexing
+        shipPos = fromObsFilteredSwap(shipPos)
         
+        #If no points
+        if points == 0:
+            #We scored zero, so no relic tile was visited. Tiles are empty.  
+            if self.empty(shipPos):        #Add to collection
+                flagFilter = True               #Notify filtering is required                
 
-            
+        #Hey, we got some points
+        else:
+            #Any relic tiles included in this observation?
+            if len(self.relics) > 0:
+
+                #Remove these positions from the working list                
+                shipPos,reduction = pointreduce(shipPos,self.relics.tojnp())
+                points -= reduction
+
+            #Have all points been accounted for?                
+            if points > 0:
+
+                #Remove (observed) empty tiles from the working list. (We know these are not causing points)                
+                shipPos = emptycandidates(self.empty.tojnp(), shipPos)                
+                
+                #Have we observed any relic tiles?
+                if len(self.nodes) > 0:
+                    #Compute the intersection between possible relic tiles and current working list                    
+                    shipPos = relicnodecandidates(self.nodes.values, shipPos)
+
+                #If shipPos has a single tile we are certain. Add to list of relic tiles                    
+                if(len(shipPos) == points):
+                    if self.relics(shipPos):
+                        flagFilter = True   #Notify filtering is required
+                        flagCompute = True  #Notify recompute is required
+                                
+                #Number of possible tiles for the points scored > 1. Keep track of theese ambiguous observations                    
+                else:
+                    self.eqset.add([shipPos.tolist(),points])
+                    flagCompute = True #Notify recompute is required
+            else:
+                #All points have been accounted for, and there are tiles left in the observation. These must be empty.
+                if self.empty(shipPos):        #Add to collection
+                    flagFilter = True               #Notify filtering is required
+
+        #Check if we need to filter equations because of new relics or empty tiles 
+        if flagFilter:
+            flagCompute = self.eqset.filter(self.empty,self.relics) or flagCompute
+        
+        #To we need to recompute the map?
+        if flagCompute:            
+            self.map = self.eqset.compute(self.empty, self.relics)
+        '''
+        if step == 199:
+            print("Fixed relic list is now length", len(self.relics))
+            print(self.relics.values)
+            print("------------------------------------------------------")
+            self.eqset.pp()
+        '''
 
     def predict(self):
-
-        #Add probabilities around the relic node
-        luxmap = jnp.zeros(self.mapsize)
-        for r in self.seenRelics.values:
-            luxmap = luxmap.at[r[0]-2:r[0]+3,r[1]-2:r[1]+3].add(1/25)        
-        
-        #luxmap = jnp.ones(self.mapsize) * 1/(24**2)
-        #printmap(luxmap)
-        #print(luxmap)
-
+        return self.map
