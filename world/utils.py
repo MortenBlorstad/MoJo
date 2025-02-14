@@ -29,10 +29,25 @@ def fromObsFiltered(obs):
 def fromObsFilteredSwap(obs):
     return fromObsFiltered(obs)[:, [1, 0]]
 
-#Returns jnp.array of values that are in 'A' but not in 'B'
+#Handle symmetric inserts
+def symmetric(el):
+    return[23-el[1],23-el[0]]
+
+#Handle symmetric inserts for whole lists
+def symmlist(l):
+    return l.copy() + [symmetric(el) for el in l]
+
+#Returns jnp.array 'A' subtract 'B'
 def reduce(A,B):
     dims = jnp.maximum(B.max(0),A.max(0))+1
     return A[~jnp.isin(jnp.ravel_multi_index(A.T,dims),jnp.ravel_multi_index(B.T,dims))]
+
+#Returns jnp.array 'A' subtract 'B' and points scored
+def pointreduce(A,B):
+    dims = jnp.maximum(B.max(0),A.max(0))+1
+    inb = jnp.isin(jnp.ravel_multi_index(A.T,dims),jnp.ravel_multi_index(B.T,dims))        
+    return A[~inb],jnp.unique(A[inb],axis=0).shape[0]
+
 
 #Agent main.py uses Namespace for parsing the json as observation. Let's do the same.
 def getObsNamespace(file):   
