@@ -2,7 +2,7 @@ import json
 from argparse import Namespace
 import numpy as np
 import jax.numpy as jnp
-
+import os
 
 #Taken from kit
 def from_json(state):
@@ -64,7 +64,10 @@ def getObsNamespace(file):
 
 #Path to replay files
 def getPath(seed, obs):
-    return "../MoJo/world/replay/{seed}/obs_{obs}".format(seed = seed, obs = obs)        
+    path1 = f"MoJo/world/replay/{seed}/obs_{obs}"
+    path2 = f"../MoJo/world/replay/{seed}/obs_{obs}"
+    # Check if the first path exists, else return the alternative path
+    return path1 if os.path.exists(path1) else path2       
 
 #Call this function to get an observation. Note that only first observations (step = 0) contains 'env_cfg'. Otherwise, empty dict is returned.
 #'step' & 'player' is also contained in 'observation.obs' It is returned seperately to mimimc the behaviour of main.py:agent_fn(...) 
