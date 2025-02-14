@@ -51,6 +51,7 @@ class Unitpos(base_component):
                 probs = probs.at[0].add(reduction)          #Increment probability of not moving
                 probs = probs.at[idx+1].subtract(reduction) #Decrement probability of moving into astroid tile
         
+
         return probs
 
     #Distribute probabilities
@@ -91,7 +92,9 @@ class Unitpos(base_component):
         l.append(map)
         if(debug):
             printmap(map,'Ship positions (seed 223344) at step 17')        
+
         for i in range(self.horizon):            
+
             map = self.probDistribute(map,astroidPredictions[i])
             header = 'Ship positions (seed 223344) at step 17+' + str(i+1)
             if(debug):

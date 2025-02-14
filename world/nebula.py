@@ -4,25 +4,142 @@ import jax.numpy as jnp
 import numpy as np
 from typing import Tuple,List
 
+from jax import jit
 
-
-def get_symmetric_coordinates(indecies, nrows = 24, ncols = 24):
+@jit
+def get_symmetric_coordinates(indices:jnp.array, nrows = 24, ncols = 24):
     """
     Given coordinates (i, j), returns the symmetric coordinates (j, i)
     along the main diagonal of a square grid.
     
     Args:
-        i (int): Row index.
-        j (int): Column index.
+        indices (jnp.ndarray): A tuple or array of row and column indices.
+        nrows (int): Number of rows in the grid.
+        ncols (int): Number of columns in the grid.
     
     Returns:
-        (int, int): Swapped (j, i) coordinates.
+        jnp.ndarray: Array with swapped and transformed (j, i) coordinates.
     """
-    i = indecies[0]
-    j = indecies[1]
+    i, j = indices
     return ncols-j-1, nrows-i-1  # Swap i and j
 
+# ===============
+## for fast propegation of probability 
+change_steps = jnp.array([7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100])
 
+@jit
+def round_down_to_nearest_100(step:int)->int:
+        return (step // 100) * 100
+
+@jit
+def should_check(step: jnp.ndarray) -> jnp.ndarray:
+    """
+    Checks if the given step(s) should apply a probability shift.
+    
+    Args:
+        step (jnp.ndarray): Array of step values.
+
+    Returns:
+        jnp.ndarray: Boolean indicating if should check along the way.
+    """
+    step_adjusted = step - round_down_to_nearest_100(step)
+    return jnp.any(change_steps[:, None] == step_adjusted,axis=0)
+
+@jit
+def move_probability(carry, i:int)->jnp.ndarray:
+    """
+    Propagates probability in the given state by shifting values in predefined directions.
+
+    Args:
+        carry (tuple): Contains:
+            - pred (jnp.ndarray): The current probability state grid.
+            - step (int): The current step number.
+        i (int): The iteration index.
+
+    Returns:
+        tuple: 
+            - Updated probability state.
+            - Copy of the updated state for visualization.
+    """
+    pred,step,checks = carry
+    moved_up_right = jnp.roll(pred, (-1, 1), axis=(0, 1))     # (-1,1)
+    moved_down_left = jnp.roll(pred, (1, -1), axis=(0, 1))    # (1,-1)
+    moved = should_check(step+i)
+    
+    ## this line should check if there is a true in checks array before current step. must be jit complient
+    checks_masked = jnp.where(jnp.arange(checks.shape[0]) < i, checks, False)
+    denom_factor = jnp.where(jnp.any(checks_masked), 2, 0)
+
+    
+    # Apply movement if the step is in the change_steps list
+    moved_up_right = jnp.where(
+                                moved, # Check if it's time to apply the shift
+                                    moved_up_right, # Apply the shifted map if condition is met (step interval reached)
+                                    pred, # Otherwise, keep the original map unchanged
+                                )
+    moved_down_left = jnp.where(
+                                moved, # Check if it's time to apply the shift
+                                    moved_down_left, # Apply the shifted map if condition is met (step interval reached)
+                                    pred, # Otherwise, keep the original map unchanged
+                                )
+    value = jnp.where(moved, pred / (i + 2),  pred ) # if moved:1 / (i + 2): else: 1
+    remove_mask = (pred>0) & (pred<jnp.inf)
+     
+    mask_up_right = ((0<moved_up_right) & (moved_up_right<jnp.inf)) | ((0<moved_down_left) & (moved_down_left<jnp.inf))
+    pred = jnp.where(remove_mask, 1/(1+denom_factor), pred)
+    pred = jnp.where(mask_up_right , 1/(1+denom_factor), pred)
+    #pred = jnp.where(mask_down_left, 1/(1+moved), pred_new)
+    #pred = pred.at[mask].set(1/(i+2))
+    return (pred,step,checks), pred
+
+@jit
+def set_probs(pred,value, mask,remove_mask):
+    pred = jnp.where(remove_mask, 0, pred)
+    pred = jnp.where(mask, value, pred)
+    return
+    
+
+
+@jit
+def predict_probabilities(state:jnp.ndarray, step:int, iterations: jnp.ndarray):
+    """
+    Predicts probability propagation over multiple iterations using JAX scan.
+
+    Args:
+        state (jnp.ndarray): Initial probability grid.
+        step (int): Initial step number.
+        iterations (int): Number of iterations to simulate.
+
+    Returns:
+        jnp.ndarray: Array of state grids at each iteration. shape (number_of_predictions, 24, 24)
+    """
+    num_iterations = iterations.shape[0]
+    all_states = jnp.zeros((num_iterations +1, 24, 24) )
+    all_states = all_states.at[0].set(state)
+
+    iteration_steps = iterations + step
+
+    checks = should_check(iteration_steps)
+    (final_state, _,_), all_predictions = jax.lax.scan(move_probability, (state, step, checks), iterations)
+    all_states = all_states.at[1:].set(all_predictions)
+    return all_states
+
+
+@jit
+def remove_unwanted_columns(matrix):
+    valid_mask = jnp.logical_or(
+        np.all(matrix == np.array([[1], [-1]]), axis=0),
+        np.all(matrix == np.array([[-1], [1]]), axis=0)
+    )
+    valid_indices = jnp.where(valid_mask, size=matrix.shape[1], fill_value=0)[0]
+
+    return jnp.take(matrix,valid_indices,axis =1)
+
+
+
+
+
+# ===============
 
 class Nebula(base_component):
     """
@@ -48,7 +165,8 @@ class Nebula(base_component):
         self.previous_observed_change:int = 0
         self.change_rate:int = 0
         self.prev_step:int = 0
-        self.map = jnp.ones((24,24))/3
+        self.map = jnp.full((24,24),jnp.nan)#jnp.zeros((24,24)) 
+        #jnp.ones((24,24))/1000
         self.found_unique:bool = False
         self.found_unique_value:float = 0.0
         self.direction:float = 0.0
@@ -69,7 +187,7 @@ class Nebula(base_component):
         ),
         axis=(0, 1),  # Apply the shifts to both row (0) and column (1) axes
         )
-       
+        
         # new
         # Conditionally update the map based on drift speed and step count
         #print(steps,(steps - 1) * abs(self.nebula_tile_drift_speed) % 1 > steps * abs(self.nebula_tile_drift_speed) % 1)
@@ -244,11 +362,11 @@ class Nebula(base_component):
             self.prev_observation = observation
             self.prev_observable = observable
             self.prev_step = current_step
-            self.map = self._move_astroid_or_nebula(self.map ,current_step)
-            if self.nebula_tile_drift_speed !=0:
-                mask = jnp.where((self.map !=1) & (observable==1))
-            else: 
-                mask = jnp.where((observable==1))
+            #self.map = self._move_astroid_or_nebula(self.map ,current_step)
+            # if self.nebula_tile_drift_speed !=0:
+            #     mask = jnp.where((self.map !=1) & (observable==1))
+            # else: 
+            #     mask = jnp.where((observable==1))
 
             # if (current_step) == 40:
             #     print(self.nebula_tile_drift_speed)
@@ -256,7 +374,9 @@ class Nebula(base_component):
             #     np.save("MoJo/map_prev.npy", np.asarray(self.map))
             #     np.save("MoJo/observation.npy", np.asarray(observation))
             #     np.save("MoJo/observable.npy", np.asarray(observable))
-            self.map = self.map.at[mask].set(observation[mask])
+            
+            #self.map = self.map.at[mask].set(observation[mask])
+            self.map = jnp.where(observable==1, observation, self.map)
             # if (current_step) ==40:
             #     np.save("MoJo/map_after.npy",np.asarray(self.map))
             self._set_symetry()
@@ -307,7 +427,7 @@ class Nebula(base_component):
             
             self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
             #print(current_step, self.get_found_unique(current_step))
-            #print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}")    
+            print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}, {entering} {leaving})")    
 
         if not np.any(delta == -1) and not (entering or leaving):
             #print(f"no change detected at change step {current_step}")
@@ -315,10 +435,10 @@ class Nebula(base_component):
             self.prev_observable = observable
             self.prev_step = current_step
             self.map = self._move_astroid_or_nebula(self.map ,current_step)
-            if self.nebula_tile_drift_speed !=0:
-                mask = jnp.where((self.map !=1) & (observable==1))
-            else: 
-                mask = jnp.where((observable==1))
+            # if self.nebula_tile_drift_speed !=0:
+            #     mask = jnp.where((self.map !=1) & (observable==1))
+            # else: 
+            #     mask = jnp.where((observable==1))
 
             # if (current_step) == 40:
             #     print(self.nebula_tile_drift_speed)
@@ -326,7 +446,8 @@ class Nebula(base_component):
             #     np.save("MoJo/map_prev.npy", np.asarray(self.map))
             #     np.save("MoJo/observation.npy", np.asarray(observation))
             #     np.save("MoJo/observable.npy", np.asarray(observable))
-            self.map = self.map.at[mask].set(observation[mask])
+            self.map = jnp.where(observable==1, observation, self.map)
+            #self.map = self.map.at[mask].set(observation[mask])
             # if (current_step) ==40:
             #     np.save("MoJo/map_after.npy",np.asarray(self.map))
             self._set_symetry()
@@ -341,21 +462,41 @@ class Nebula(base_component):
             moved_from_indices = jnp.array(jnp.where(delta==-1))
             moved_to_indices = jnp.array(jnp.where(delta==1))
             if moved_from_indices.shape != moved_to_indices.shape:
-                possible_directions = jnp.array([[1, -1], [-1, 1]])  # (row change, column change)
-                directions = [1,-1]
-                moved_from_plus_dir1 = moved_from_indices + possible_directions[0][:, None]  # Move (1,-1)
-                moved_from_plus_dir2 = moved_from_indices + possible_directions[1][:, None]  # Move (-1,1)
-                matches_dir1 = jnp.sum((moved_from_plus_dir1[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
-                matches_dir2 = jnp.sum((moved_from_plus_dir2[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
-                self.direction = directions[jnp.argmax(jnp.array([matches_dir1.sum(), matches_dir2.sum()]))]
+               
+                # possible_directions = jnp.array([[1, -1], [-1, 1]])  # (row change, column change)
+                # directions = [-1, 1]
+                # moved_from_plus_dir1 = moved_from_indices + possible_directions[0][:, None]  # Move (1,-1)
+                # moved_from_plus_dir2 = moved_from_indices + possible_directions[1][:, None]  # Move (-1,1)
+                
+                # print(moved_to_indices)
+                # matches_dir1 = jnp.sum((moved_from_plus_dir1[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
+                # matches_dir2 = jnp.sum((moved_from_plus_dir2[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
+                # self.direction = directions[jnp.argmax(jnp.array([matches_dir1.sum(), matches_dir2.sum()]))]
+
+                print(prev_observation_masked[:10,:10])
+                print(observation_masked[:10,:10])
+
+                cand1 = jnp.roll(prev_observation_masked, (1, -1), axis=(0,1))
+                cand2 = jnp.roll(prev_observation_masked, (-1, 1), axis=(0,1))
+                delta1 = jnp.abs(observation_masked ==cand1).sum()
+                delta2 = jnp.abs(observation_masked == cand2).sum()
+                directions = [1, -1]
+                ind = jnp.argmax(jnp.array([delta1, delta2]))  # Find direction with minimal difference
+                self.direction = directions[ind] 
+
             else:
+                print("standard")
+                print(delta)
+                print(observation_masked[:10,10])
+                print(prev_observation_masked[:10,10])
                 directions = (moved_from_indices - moved_to_indices)
                 #print(self.prev_step,current_step, direction, self.change_rate)
                 directions = self.handle_rollovers(directions)
                 expected_direction_1 = jnp.array([[1], [-1]])  # Down-left movement
                 expected_direction_2 = jnp.array([[-1], [1]])  # Up-right movement
                 # Check if all movements follow the same pattern
-              
+                directions = remove_unwanted_columns(directions)
+                print("standard", directions)
                 if jnp.all(directions == expected_direction_1):
                     self.direction  = -1
                 elif jnp.all(directions == expected_direction_2):
@@ -366,7 +507,7 @@ class Nebula(base_component):
             
             self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
             #print(current_step, self.nebula_tile_drift_speed, direction*self.change_rate)
-            #print(f"Change detected at change step {current_step}. Nebula speed is {self.nebula_tile_drift_speed}")    
+            print(f"Change detected at change step {current_step}. Nebula speed is {self.nebula_tile_drift_speed}")    
             #print(self.get_found_unique(current_step))
 
 
@@ -376,11 +517,12 @@ class Nebula(base_component):
         self.prev_step = current_step
 
         self.map = self._move_astroid_or_nebula(self.map, current_step)
-        if self.nebula_tile_drift_speed !=0:
-            mask = jnp.where((self.map !=1) & (observable==1))
-        else: 
-            mask = jnp.where((observable==1))
+        # if self.nebula_tile_drift_speed !=0:
+        #     mask = jnp.where((self.map !=1) & (observable==1))
+        # else: 
+        #     mask = jnp.where((observable==1))
 
+        self.map = jnp.where(observable==1, observation, self.map)
 
         # if (current_step) == 40:
         #     print(self.nebula_tile_drift_speed)
@@ -388,7 +530,7 @@ class Nebula(base_component):
         #     np.save(f"MoJo/{self.name}_map_prev.npy", np.asarray(self.map))
         #     np.save(f"MoJo/{self.name}_oservation.npy", np.asarray(observation))
         #     np.save(f"MoJo/{self.name}_observable.npy", np.asarray(observable))
-        self.map = self.map.at[mask].set(observation[mask])
+        #self.map = self.map.at[mask].set(observation[mask])
         # if (current_step) ==40:
         #     np.save(f"MoJo/{self.name}_map_after.npy",np.asarray(self.map))
         
@@ -435,19 +577,25 @@ class Nebula(base_component):
         arr = arr.at[next_need_fix].set(next_values)
         return arr
 
+    
+
     def predict(self,observation:jnp.ndarray, observable:jnp.ndarray,current_step:int)->List[jnp.ndarray]:
-
-        predictions = []
-        # self.map = self.map.at[observable==1].set(observation[observable==1])
-        # self.map = self.map.at[observable==0].set(observation[observable==0])
-        # self.map = self._move_astroid_or_nebula(self.map, current_step)
-        predictions.append(self.map)
-        prediction = self.map.copy()
-        for i in range(1,self.horizon+1):
-            prediction = self._move_astroid_or_nebula(prediction, current_step+i)
-            predictions.append(prediction)
-
-        return predictions
+        if self.direction ==0 or self.nebula_tile_drift_speed ==0:
+            iterations_array = jnp.arange(1,int(self.horizon+1))
+            prediction = self.map.copy()
+            predictions = predict_probabilities(prediction, current_step, iterations_array)
+            return [pred for pred in predictions]
+        else:
+            predictions = []
+            # self.map = self.map.at[observable==1].set(observation[observable==1])
+            # self.map = self.map.at[observable==0].set(observation[observable==0])
+            # self.map = self._move_astroid_or_nebula(self.map, current_step)
+            predictions.append(self.map)
+            prediction = self.map.copy()
+            for i in range(1,self.horizon+1):
+                prediction = self._move_astroid_or_nebula(prediction, current_step+i)
+                predictions.append(prediction)
+            return predictions
 
 
 if __name__ == "__main__":
