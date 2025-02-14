@@ -36,7 +36,9 @@ class Unitpos(base_component):
         #Return map
         return luxmap
     
-    def tmp(self,possible,v,astroids):
+    #Calculate probability of ending up in a surrounding tile
+    def getProbs(self,possible,v,astroids):
+
         #Create the list of probabilities
         probs = [1/6]*len(possible)
         probs[0]+=1/6*(6-len(possible))        
@@ -44,11 +46,11 @@ class Unitpos(base_component):
 
         #Update values based on astroid probabilities on a given tile
         for idx, a in enumerate(astroids[1:]):
-            if(a > 0):
-                a = a.T # transpose to make same as probmaps 
-                reduction = probs[idx+1]*a                
-                probs = probs.at[0].add(reduction)
-                probs = probs.at[idx+1].subtract(reduction)                
+            if(a > 0):                  
+                reduction = probs[idx+1]*a                  #How big is the reduction?                               
+                probs = probs.at[0].add(reduction)          #Increment probability of not moving
+                probs = probs.at[idx+1].subtract(reduction) #Decrement probability of moving into astroid tile
+        
         return probs
 
     #Distribute probabilities
@@ -71,15 +73,11 @@ class Unitpos(base_component):
             t = t[jnp.where((t[:,0] >= 0) & (t[:,1] >= 0) & (t[:,0] < self.mapsize[0]) & (t[:,1] < self.mapsize[1]))]
 
             #Using sum of probabilities. We could end up in a situation of p(ship in tile) > 1, but we don't care
-            nw = jnp.add.at(nw, (t[:,0], t[:,1]), self.tmp(t,v,astroids[(t[:,0], t[:,1])]), inplace=False)
+            nw = jnp.add.at(nw, (t[:,0], t[:,1]), self.getProbs(t,v,astroids[(t[:,0], t[:,1])]), inplace=False)
         
         return nw
 
-
     def learn(self, shipPositions):
-        
-        #Demo observation - Can be removed
-        #shipPositions = [jnp.array([[2,2]])]
         
         #Save map to memory
         self.map = self.getMap(jnp.array(shipPositions[0]))
@@ -93,7 +91,7 @@ class Unitpos(base_component):
         l.append(map)
         if(debug):
             printmap(map,'Ship positions (seed 223344) at step 17')        
-        for i in range(self.horizon):
+        for i in range(self.horizon):            
             map = self.probDistribute(map,astroidPredictions[i])
             header = 'Ship positions (seed 223344) at step 17+' + str(i+1)
             if(debug):
