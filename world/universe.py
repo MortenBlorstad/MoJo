@@ -11,19 +11,34 @@ from world.obsqueue import ObservationQueue
 from abc import ABC, abstractmethod
 import flax
 import flax.serialization
-from world.obs_to_state import State
-import socket
 
+from world.obs_to_state import State
 from world.unitpos import Unitpos
 from world.relic import Relics
 from world.nebula_astroid import NebulaAstroid
 from world.energy import Energy
+from world.scalarencoder import NaiveScalarEncoder
 from world.obs_to_state import State
 
 @jit
 def get_unobserved_terrain(nebulas:jnp.ndarray, astroids:jnp.ndarray)->jnp.ndarray:
     return jnp.where(jnp.isnan(nebulas) | jnp.isnan(astroids), 1, 0)
 
+
+env_params_ranges = dict(
+    unit_move_cost=                 list(range(1, 6)), # list(range(x, y)) = [x, x+1, x+2, ... , y-1]
+    unit_sensor_range=              [1, 2, 3, 4],
+    nebula_tile_vision_reduction=   list(range(0, 8)),
+    nebula_tile_energy_reduction=   [0, 1, 2, 3, 5, 25],
+    unit_sap_cost=                  list(range(30, 51)),
+    unit_sap_range=                 list(range(3, 8)),
+    unit_sap_dropoff_factor=        [0.25, 0.5, 1],
+    unit_energy_void_factor=        [0.0625, 0.125, 0.25, 0.375],
+    # map randomizations
+    nebula_tile_drift_speed=        [-0.15, -0.1, -0.05, -0.025, 0.025, 0.05, 0.1, 0.15],
+    energy_node_drift_speed=        [0.01, 0.02, 0.03, 0.04, 0.05],
+    energy_node_drift_magnitude=    list(range(3, 6)),
+)
 
 
 
@@ -77,13 +92,13 @@ class Universe():
         #Other stuff
         self.totalscore = 0     #Overall score
         self.thiscore = 0       #Score current step    
-
-        # self.relic = Relic()
+        
         self.nebula_astroid = NebulaAstroid(self.horizont)
         self.p1pos = Unitpos(self.horizont)
         self.p2pos = Unitpos(self.horizont)
         self.relics = Relics()
         self.energy = Energy(self.horizont)
+        self.scalar = NaiveScalarEncoder(env_params_ranges)
 
     #s_{t:t+h} | o_{t}
     def predict(self, observation:dict):
@@ -127,7 +142,17 @@ class Universe():
         predictions.append(self.relics.predict())
 
         #Predict Energy
-        predictions.append(self.energy.predict(current_step=state.steps)) 
+        predictions.append(self.energy.predict(current_step=state.steps))
+        
+        #Add the scalar parameters, encoded into a 24x24 grid
+        predictions.append(
+             self.scalar.Encode(
+                unit_move_cost = 2,
+                nebula_tile_drift_speed=0.05,
+                unit_sap_cost = 50
+            )
+        )
+
         stacked_array = jnp.concat(predictions)
         print(stacked_array.shape)
         return stacked_array  
