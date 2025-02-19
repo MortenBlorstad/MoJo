@@ -70,7 +70,12 @@ class State():
         self.opponent_units_count = self.count_units(unit_mask[self.opp_team_id],unit_positions[self.opp_team_id]) # SP_2:24x24
         
         # vi trenger denne også. TODO hvordan håndtere
-        self.unit_energys = np.array(obs["units"]["energy"][self.team_id]) # shape (max_units, 1)
+        unit_energies = np.array(obs["units"]["energy"]) # shape (max_units, T)
+    
+
+        self.player_sparse_energy_map = self.get_sparse_energy_map(unit_mask[self.team_id],unit_positions[self.team_id],unit_energies[self.team_id] )
+        self.opponent_sparse_energy_map = self.get_sparse_energy_map(unit_mask[self.opp_team_id],unit_positions[self.opp_team_id],unit_energies[self.opp_team_id] )
+
 
         #Ship positions, per team (Added by Jørgen 18.02.25)
         self.p0ShipPos = swapAndFilterObservation(obs['units']['position'][self.team_id])
@@ -98,6 +103,17 @@ class State():
         self.relic_nodes = self.get_relic_node_pos(observed_relic_nodes_mask,observed_relic_node_positions)
         '''
 
+
+
+    def get_sparse_energy_map(self, unit_mask:np.ndarray,unit_positions:np.ndarray, unit_energy:np.ndarray)->np.ndarray:
+        players_energies = np.zeros((24, 24,16), dtype=int)
+        available_unit = np.where(unit_mask)[0]
+        unit_energy_masked = unit_energy[available_unit]
+        unit_positions_masked = unit_positions[available_unit]
+        dim2, dim3 = unit_positions_masked[:,0],unit_positions_masked[:,1]
+        #print("index",unit_positions_masked, dim2, dim3)
+        players_energies[dim2, dim3, available_unit] = unit_energy_masked
+        return players_energies/400
 
 
 
