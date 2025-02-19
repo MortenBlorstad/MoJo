@@ -16,18 +16,13 @@ def from_json(state):
     else:
         return state 
 
-#obs->array 
-def fromObs(obs):
-    return jnp.array(obs[0])
-
-#obs->array, filter out missing values
-def fromObsFiltered(obs):
-    obs = fromObs(obs)
+#filter out missing values of observation
+def filterObservation(obs:jnp.ndarray):    
     return obs[jnp.where((obs[:,0] != -1) & (obs[:,1] != -1))]
 
-#obs->array, filter out missing values, swap x/y
-def fromObsFilteredSwap(obs):
-    return fromObsFiltered(obs)[:, [1, 0]]
+#filter out missing values and swap axes
+def swapAndFilterObservation(obs:jnp.ndarray):    
+    return filterObservation(obs)[:, [1, 0]]
 
 #Handle symmetric inserts
 def symmetric(el):

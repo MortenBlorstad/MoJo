@@ -1,6 +1,4 @@
 from world.base_component import base_component
-from world.utils import printmap
-import jax
 import jax.numpy as jnp
 
 class Unitpos(base_component):
@@ -19,22 +17,7 @@ class Unitpos(base_component):
                 [0, -1],    # Move left
             ],
             dtype=jnp.int16,
-        )        
-
-    #Get map with all zeros except for tiles with ships
-    def getMap(self, obs):
-        
-        #Remove empty observations
-        obs = obs[jnp.where((obs[:,0] != -1) & (obs[:,1] != -1))]
-
-        #Create indices of ship positions, using y,x
-        indices = (obs[:,1],obs[:,0])        
-
-        #Place ship at indices
-        luxmap = jnp.zeros(self.mapsize).at[indices].add(1)
-        
-        #Return map
-        return luxmap
+        )
     
     #Calculate probability of ending up in a surrounding tile
     def getProbs(self,possible,v,astroids):
@@ -78,28 +61,20 @@ class Unitpos(base_component):
         
         return nw
 
-    def learn(self, shipPositions):
-        
-        #Save map to memory
-        self.map = self.getMap(jnp.array(shipPositions[0]))
+    def learn(self, shipPositions):             
 
-    def predict(self, astroidPredictions, debug = False):
+        #Place ship at indices
+        self.map =jnp.zeros(self.mapsize).at[shipPositions[:,0],shipPositions[:,1]].add(1)
+
+    def predict(self, astroidPredictions):
 
         #In case we wan't to keep the current map in memory
         map = self.map.clone()
 
         l = []
-        l.append(map)
-        if(debug):
-            printmap(map,'Ship positions (seed 223344) at step 17')        
+        l.append(map)       
 
-        for i in range(self.horizon):            
-
-            map = self.probDistribute(map,astroidPredictions[i])
-            header = 'Ship positions (seed 223344) at step 17+' + str(i+1)
-            if(debug):
-                printmap(map,header)            
-            l.append(map)
-
-        #return jnp.stack(l,axis = 0)  
-        return l
+        for i in range(self.horizon):
+            map = self.probDistribute(map,astroidPredictions[i])           
+            l.append(map) 
+        return jnp.array(l)

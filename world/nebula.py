@@ -349,7 +349,7 @@ class Nebula(base_component):
         self.map = self.map.at[symetry_ones_or_zeroes].set(self.map[ones_or_zeroes])
 
 
-    def learn(self, observation:jnp.ndarray, observable:jnp.ndarray, current_step:jnp.ndarray, prev_change_step:jnp.ndarray)->bool:
+    def learn(self, observation:jnp.ndarray, observable:jnp.ndarray, current_step:jnp.ndarray, prev_change_step:jnp.ndarray, dbg = False)->bool:
         """
             check whether nebula_tile_drift_speed in one of the following values {-0.5: move up-right every other step,-0.25: move up-right every 4th step,0.25: move down-left every 4th step,0.5 move down-left every second step}
             obs: (5x24,24) four time steps of nebula positions, (current_step-5, current_step-3, current_step-2, current_step-1, current_step) current time step + 4 previous
@@ -412,10 +412,11 @@ class Nebula(base_component):
         if entering or leaving:
             if entering and leaving:
                 if enetering_direction != leaving_direction:
-                    print(entering,leaving)
-                    print(enetering_direction,leaving_direction)
-                    print(prev_observation_masked)
-                    print(observation_masked)
+                    if dbg:
+                        print(entering,leaving)
+                        print(enetering_direction,leaving_direction)
+                        print(prev_observation_masked)
+                        print(observation_masked)
                     raise Exception(f"{enetering_direction} != {leaving_direction}")
 
             if entering and not leaving:
@@ -427,7 +428,8 @@ class Nebula(base_component):
             
             self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
             #print(current_step, self.get_found_unique(current_step))
-            print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}, {entering} {leaving})")    
+            if dbg:
+                print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}, {entering} {leaving})")    
 
         if not np.any(delta == -1) and not (entering or leaving):
             #print(f"no change detected at change step {current_step}")
@@ -472,9 +474,9 @@ class Nebula(base_component):
                 # matches_dir1 = jnp.sum((moved_from_plus_dir1[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
                 # matches_dir2 = jnp.sum((moved_from_plus_dir2[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
                 # self.direction = directions[jnp.argmax(jnp.array([matches_dir1.sum(), matches_dir2.sum()]))]
-
-                print(prev_observation_masked[:10,:10])
-                print(observation_masked[:10,:10])
+                if dbg:
+                    print(prev_observation_masked[:10,:10])
+                    print(observation_masked[:10,:10])
 
                 cand1 = jnp.roll(prev_observation_masked, (1, -1), axis=(0,1))
                 cand2 = jnp.roll(prev_observation_masked, (-1, 1), axis=(0,1))
@@ -485,10 +487,11 @@ class Nebula(base_component):
                 self.direction = directions[ind] 
 
             else:
-                print("standard")
-                print(delta)
-                print(observation_masked[:10,10])
-                print(prev_observation_masked[:10,10])
+                if dbg:
+                    print("standard")
+                    print(delta)
+                    print(observation_masked[:10,10])
+                    print(prev_observation_masked[:10,10])
                 directions = (moved_from_indices - moved_to_indices)
                 #print(self.prev_step,current_step, direction, self.change_rate)
                 directions = self.handle_rollovers(directions)
@@ -496,18 +499,21 @@ class Nebula(base_component):
                 expected_direction_2 = jnp.array([[-1], [1]])  # Up-right movement
                 # Check if all movements follow the same pattern
                 directions = remove_unwanted_columns(directions)
-                print("standard", directions)
+                if dbg:
+                    print("standard", directions)
                 if jnp.all(directions == expected_direction_1):
                     self.direction  = -1
                 elif jnp.all(directions == expected_direction_2):
                     self.direction  = 1
                 else:
-                    print("Mixed movement or no consistent pattern")
+                    if dbg:
+                        print("Mixed movement or no consistent pattern")
                     #raise Exception("Mixed movement or no consistent pattern")
             
             self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
             #print(current_step, self.nebula_tile_drift_speed, direction*self.change_rate)
-            print(f"Change detected at change step {current_step}. Nebula speed is {self.nebula_tile_drift_speed}")    
+            if dbg:
+                print(f"Change detected at change step {current_step}. Nebula speed is {self.nebula_tile_drift_speed}")    
             #print(self.get_found_unique(current_step))
 
 
