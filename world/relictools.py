@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from itertools import product
-from world.utils import symmlist, symmetric
+from world.utils import symmlist
 
 class EquationSet():
 
@@ -24,7 +24,7 @@ class EquationSet():
     #Remove symbols that are confirmed 0/1
     #Remove empty equations (reduced to nothing during filtering)
     #Add new relic/empty tiles in the process
-    def filter(self, empty, relic):
+    def filter(self, empties, relics):
 
         #No need to do this if equation set is empty
         if len(self.equations) == 0:
@@ -42,10 +42,10 @@ class EquationSet():
             for i in reversed(range(len(self.equations))):              # <- Iterate all equations                
                 for j in reversed(range(len(self.equations[i][0]))):    # <- Iterate all symbols of this equation
 
-                    if empty.has(self.equations[i][0][j]):              # <- If this symbol has a confirmed value of 0                    
+                    if empties.has(self.equations[i][0][j]):              # <- If this symbol has a confirmed value of 0                    
                         self.equations[i][0].pop(j)                     # <- Remove symbol from equation
                     
-                    elif relic.has(self.equations[i][0][j]):            # <- If this symbol has a confirmed value of 0
+                    elif relics.has(self.equations[i][0][j]):            # <- If this symbol has a confirmed value of 0
                         self.equations[i][0].pop(j)                     # <- Remove symbol from equation
                         self.equations[i][1] -= 1                       # <- and decrement value of equation by 1
 
@@ -55,12 +55,12 @@ class EquationSet():
 
                     #If solution is 0, all symbols must be 0. We have found empty tiles
                     elif self.equations[i][1] == 0:
-                        change = change or empty(self.equations.pop(i)[0])
+                        change = change or empties(self.equations.pop(i)[0])
                         break
 
                     #Num symbols match solution. They must all be 1. We have found relic tiles                    
                     elif len(self.equations[i][0]) == self.equations[i][1]:
-                        change = change or relic(self.equations.pop(i)[0])
+                        change = change or relics(self.equations.pop(i)[0])
                         break
 
             #Let's stop here if no new relic/empty tiles were discovered
@@ -103,7 +103,7 @@ class EquationSet():
         return jnp.mean(mask[jnp.where(jnp.all(res, axis=1))],axis=0)
     
     #Compute the map
-    def compute(self, empty, relics):
+    def compute(self, empties, relics):
         
         #Create map
         relicmap = jnp.zeros(self.mapsize)
@@ -128,7 +128,7 @@ class EquationSet():
 
             #Update list with new relic/empty tiles we now have confirmed            
             relics([self.outdict[x] for x in jnp.where(res == 1)[0].tolist()])
-            empty([self.outdict[x] for x in jnp.where(res == 0)[0].tolist()])
+            empties([self.outdict[x] for x in jnp.where(res == 0)[0].tolist()])
                     
             #Update ambiguous tiles with the calculated probability
             indices = jnp.array(symmlist([self.outdict[x] for x in range(len(res))]))
