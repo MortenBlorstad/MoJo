@@ -1,32 +1,28 @@
 from world.base_component import base_component
-from world.utils import fromObsFilteredSwap, reduce, symmetric, pointreduce
+from world.utils import reduce, symmetric, pointreduce
 from world.relictools import EquationSet
 import jax.numpy as jnp
-                
-#Some notes / ToDo
-#------------------------------------------------------------------------------
-#Odd case t = 71 for seed 223344
-#Insert symmetric equations?
-#Cleanup these functions :
 
-def emptycandidates(values, positions):
+#Remove tiles marked as empty from the ship positions
+def removeEmpty(positions:jnp.ndarray, values:jnp.ndarray):
     if len(values) == 0:
         return positions
-    return reduce(positions,values)
-    
-def relicnodecandidates(values, cand):
+    return reduce(positions, values)
+
+#Compute intersection between ship positions and possible relic tile positions
+#ToDo: Array of unique relic tile positions could be computed only @ relic node discovery time
+def relicCandidates(positions:jnp.ndarray, values:list):
     l = []
     for r in values:
         l.append(
-            cand[jnp.where(
-                (cand[:,0] >= r[0]-2) & 
-                (cand[:,0] <= r[0]+2) &
-                (cand[:,1] >= r[1]-2) & 
-                (cand[:,1] <= r[1]+2)
+            positions[jnp.where(
+                (positions[:,0] >= r[0]-2) & 
+                (positions[:,0] <= r[0]+2) &
+                (positions[:,1] >= r[1]-2) & 
+                (positions[:,1] <= r[1]+2)
             )]
         )                
     return jnp.unique(jnp.concatenate(l),axis=0)
-#---------------------------------------------------
 
 #Wrapper around list for handling symmetric insertion
 class SymList():
@@ -35,6 +31,7 @@ class SymList():
     def __init__(self):
         super().__init__()
         self.reset()
+
 
     #Implement a reset function for removing all values
     def reset(self):        
@@ -69,11 +66,8 @@ class SymList():
     
     #item in collection?
     def has(self,object):
-        return object in self.values
-    
-    #Debug
-    def pp(self):
-        print(self.values)
+        return object in self.values    
+
 
 class Relics(base_component):
 
@@ -92,21 +86,18 @@ class Relics(base_component):
         #Initial map        
         self.map = self.eqset.compute(self.empty,self.relics)
 
-    def learn(self, relicPositions, points, shipPos):        
+    def learn(self, relicPositions, points, shipPos):
        
         points = int(points)
 
         flagCompute = False
         flagFilter = False
 
-        #Update list of observed relicnodes : Filter empty values & swap y/x
-        if self.nodes(fromObsFilteredSwap(relicPositions)):            
+        #Update list of observed relicnodes : Filter empty values & swap y/x            
+        if self.nodes(relicPositions):            
             self.empty.reset()
             self.eqset.reset()            
-            flagCompute = True            
-
-        #Get filter observation with jnp indexing
-        shipPos = fromObsFilteredSwap(shipPos)
+            flagCompute = True
         
         #If no points
         if points == 0:
@@ -127,12 +118,12 @@ class Relics(base_component):
             if points > 0:
 
                 #Remove (observed) empty tiles from the working list. (We know these are not causing points)                
-                shipPos = emptycandidates(self.empty.tojnp(), shipPos)                
+                shipPos = removeEmpty(shipPos, self.empty.tojnp())
                 
                 #Have we observed any relic tiles?
                 if len(self.nodes) > 0:
                     #Compute the intersection between possible relic tiles and current working list                    
-                    shipPos = relicnodecandidates(self.nodes.values, shipPos)
+                    shipPos = relicCandidates(shipPos, self.nodes.values)
 
                 #If shipPos has a single tile we are certain. Add to list of relic tiles                    
                 if(len(shipPos) == points):
@@ -158,5 +149,5 @@ class Relics(base_component):
             self.map = self.eqset.compute(self.empty, self.relics)
 
 
-    def predict(self):
+    def predict(self):        
         return self.map[jnp.newaxis,:]

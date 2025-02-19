@@ -1,9 +1,19 @@
+#from luxai_s3.wrappers import LuxAIS3GymEnvCheat
+
 import sys
 import os
+import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import jax.numpy as jnp
 from jax import jit
-from world.utils import getObservation
+import json
+from world.utils import getObservation, printmap,prmap#, getObsNamespace, getPath, from_json
+from abc import ABC, abstractmethod
+import flax
+import flax.serialization
+
+import wandb
+
 from world.obs_to_state import State
 from world.unitpos import Unitpos
 from world.relic import Relics
@@ -87,49 +97,81 @@ class Universe():
         self.scalar = NaiveScalarEncoder(env_params_ranges)
 
     #s_{t:t+h} | o_{t}
-    def predict(self, observation:dict):        
+    def predict(self, observation:dict):
 
-        #Create state from observation        
-        state:State = State(observation,self.player)
-        
-        self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)               
+        dict = {}
+
+        #Create state from observation
+        start_time = time.time()        
+        state:State = State(observation,self.player)        
+        dict["Creating state"] = time.time() - start_time
+
+        dict["timestep"] = state.steps
+      
+        start_time = time.time()
+        self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)
+        dict["Nebula astroid learn"] = time.time() - start_time
+
+        start_time = time.time()
         self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
-        
-        self.p0pos.learn(state.p0ShipPos)        
-        self.p1pos.learn(state.p1ShipPos)        
+        dict["Energy learn"] = time.time() - start_time
+    
+        start_time = time.time()
+        self.p0pos.learn(state.p0ShipPos)
+        dict["Ship 0 positions learn"] = time.time() - start_time
+
+        start_time = time.time()
+        self.p1pos.learn(state.p1ShipPos)
+        dict["Ship 1 positions learn"] = time.time() - start_time
         
         #Update points
         self.thiscore = state.teampoints - self.totalscore
         self.totalscore += self.thiscore
                 
-        #Learn relic tiles        
+        #Learn relic tiles
+        start_time = time.time()
         self.relics.learn(            
             state.relicPositions,   #Position of (visible) relic nodes 
             self.thiscore,          #How many points we scored                     
             state.p0ShipPos         #The whereabouts of our mighty fleet
-        )        
+        )
+        dict["Relic tiles learn"] = time.time() - start_time
 
-        #Predict Nebula and Astroid here        
+        #Predict Nebula and Astroid here
+        start_time = time.time()
         nebulas, astroids = self.nebula_astroid.predict(state.nebulas,state.asteroids, state.observeable_tiles, current_step=state.steps)
+        dict["Nebula astroid predict"] = time.time() - start_time
+        
 
-        #OBS: get unobserved_terrain before calling nan_to_num on nebulas & astr0oids. (nan == unobserved_terrain)        
-        unobserved_terrain = get_unobserved_terrain(nebulas,astroids)        
+        #OBS: get unobserved_terrain before calling nan_to_num on nebulas & astr0oids. (nan == unobserved_terrain)
+        start_time = time.time()
+        unobserved_terrain = get_unobserved_terrain(nebulas,astroids)
+        dict["Unobserved terrain learn"] = time.time() - start_time
 
         #Create list of predictions
         predictions = [jnp.nan_to_num(nebulas), jnp.nan_to_num(astroids), unobserved_terrain]
 
-        #Add player position predictions        
-        predictions.append(self.p0pos.predict(astroids[1:]))        
+        #Add player position predictions
+        start_time = time.time()
+        predictions.append(self.p0pos.predict(astroids[1:]))
+        dict["Ship 0 positions predict"] = time.time() - start_time
+        
+        start_time = time.time()
         predictions.append(self.p1pos.predict(astroids[1:]))
-        
+        dict["Ship 1 positions predict"] = time.time() - start_time
 
-        #Predict Relic tiles        
-        predictions.append(self.relics.predict())        
+        #Predict Relic tiles
+        start_time = time.time()
+        predictions.append(self.relics.predict())
+        dict["Relic tiles predict"] = time.time() - start_time
        
-        #Predict Energy        
-        predictions.append(self.energy.predict(current_step=state.steps))        
+        #Predict Energy
+        start_time = time.time()
+        predictions.append(self.energy.predict(current_step=state.steps))
+        dict["Energy predict"] = time.time() - start_time
         
-        #Add the scalar parameters, encoded into a 24x24 grid        
+        #Add the scalar parameters, encoded into a 24x24 grid
+        start_time = time.time()
         predictions.append(
              self.scalar.Encode(
                 unit_move_cost = 2,
@@ -137,12 +179,13 @@ class Universe():
                 unit_sap_cost = 50                
             )
         )
-
+        dict["Scalars encode"] = time.time() - start_time
         
-        stacked_array = jnp.concat(predictions)
-        print(stacked_array.shape)
-        return stacked_array  
+        #stacked_array = jnp.concat(predictions)
+        #print(stacked_array.shape)
+        #return stacked_array  
 
+        return dict
 
         
 
@@ -150,6 +193,21 @@ class Universe():
 def jorgen():
 
     print("Running Jørgens tests")
+
+
+    # start a new wandb run to track this script
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="Universe performance",
+
+        # track hyperparameters and run metadata
+        config={        
+            "some_param": "has_been_set"
+        }
+    )   
+
+    #Init wandb
+    run = wandb.init()    
 
     #Fix a seed for testing. 
     seed = 223344
@@ -160,13 +218,13 @@ def jorgen():
     #Create a fixed seed universe
     u = Universe(player,obs,cfg,horizont=3, seed=seed)
 
-    for i in range(1,2):
+    for i in range(1,200):
         
         #Get another observation
         _, _, obs, _, timeleft = getObservation(seed,i)        
 
         #Test universe prediction
-        u.predict(obs)
+        run.log(u.predict(obs))
 
 if __name__ == "__main__":
     jorgen()

@@ -17,22 +17,7 @@ class Unitpos(base_component):
                 [0, -1],    # Move left
             ],
             dtype=jnp.int16,
-        )        
-
-    #Get map with all zeros except for tiles with ships
-    def getMap(self, obs):
-        
-        #Remove empty observations
-        obs = obs[jnp.where((obs[:,0] != -1) & (obs[:,1] != -1))]
-
-        #Create indices of ship positions, using y,x
-        indices = (obs[:,1],obs[:,0])        
-
-        #Place ship at indices
-        luxmap = jnp.zeros(self.mapsize).at[indices].add(1)
-        
-        #Return map
-        return luxmap
+        )
     
     #Calculate probability of ending up in a surrounding tile
     def getProbs(self,possible,v,astroids):
@@ -76,10 +61,10 @@ class Unitpos(base_component):
         
         return nw
 
-    def learn(self, shipPositions):
-        
-        #Save map to memory
-        self.map = self.getMap(jnp.array(shipPositions[0]))
+    def learn(self, shipPositions):             
+
+        #Place ship at indices
+        self.map =jnp.zeros(self.mapsize).at[shipPositions[:,0],shipPositions[:,1]].add(1)
 
     def predict(self, astroidPredictions):
 
