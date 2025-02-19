@@ -74,7 +74,7 @@ class State():
     
 
         self.player_sparse_energy_map = self.get_sparse_energy_map(unit_mask[self.team_id],unit_positions[self.team_id],unit_energies[self.team_id] )
-        #self.opponent_sparse_energy_map = self.get_sparse_energy_map(unit_mask[self.opp_team_id],unit_positions[self.opp_team_id],unit_energies[self.opp_team_id] )
+        self.opponent_sparse_energy_map = self.get_sparse_energy_map(unit_mask[self.opp_team_id],unit_positions[self.opp_team_id],unit_energies[self.opp_team_id] )
 
 
         #Ship positions, per team (Added by Jørgen 18.02.25)
