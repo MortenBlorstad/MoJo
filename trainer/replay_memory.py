@@ -1,5 +1,9 @@
 import numpy as np
 import random
+from collections import namedtuple
+
+# Define a named tuple for storing transitions
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done'))
 
 class ReplayMemory:
     def __init__(self, capacity):
@@ -24,7 +28,7 @@ class ReplayMemory:
         """
         if len(self.memory) < self.capacity:
             self.memory.append(None)  # Expand the memory until full
-        self.memory[self.position] = (state, action, reward, next_state, done)
+        self.memory[self.position] = Transition(state, action, reward, next_state, done)
         self.position = (self.position + 1) % self.capacity  # Circular buffer
 
     def sample(self, batch_size):
@@ -33,7 +37,7 @@ class ReplayMemory:
         Args:
             batch_size (int): Number of transitions to sample.
         Returns:
-            list: A batch of sampled transitions.
+            list of Transition: A batch of sampled transitions.
         """
         return random.sample(self.memory, batch_size)
 
