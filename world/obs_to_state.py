@@ -54,7 +54,8 @@ class State():
     def make_state(self, obs:dict):
 
         #Total points obtained in current game (Added by Jørgen 18.02.25)
-        self.teampoints = int(obs["team_points"][self.team_id])       
+        self.teampoints = int(obs["team_points"][self.team_id])  
+        self.opponent_teampoints = int(obs["team_points"][self.opp_team_id])            
         
         #number of steps taken in the current game/episode
         self.steps = int(obs["steps"])
