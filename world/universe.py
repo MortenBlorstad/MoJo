@@ -86,11 +86,23 @@ class Universe():
         self.energy = Energy(self.horizont)
         self.scalar = NaiveScalarEncoder(env_params_ranges)
 
+    def get_reward(self, a: int, b: int) -> float:
+        """Calculate the reward for the current step.
+        Args:
+            a (int): The points of the team
+            b (int): The points of the opponent team"""
+        return (a - b) / (a + b + 1)
+    
     #s_{t:t+h} | o_{t}
     def predict(self, observation:dict):        
 
         #Create state from observation        
         state:State = State(observation,self.player)
+
+        self.teampoints = state.teampoints
+        self.opponent_teampoints = state.opponent_teampoints
+
+        self.reward  = self.get_reward(self.teampoints, self.opponent_teampoints)
         
         self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)               
         self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)

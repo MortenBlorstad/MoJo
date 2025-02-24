@@ -2,6 +2,7 @@ from world.base_component import base_component
 from world.utils import reduce, symmetric, pointreduce
 from world.relictools import EquationSet
 import jax.numpy as jnp
+import numpy as np
 
 #Remove tiles marked as empty from the ship positions
 def removeEmpty(positions:jnp.ndarray, values:jnp.ndarray):
@@ -45,7 +46,7 @@ class SymList():
         changed = False
 
         #Convert to list
-        if isinstance(entries, jnp.ndarray):
+        if isinstance(entries, (jnp.ndarray, np.ndarray)):
             entries = entries.tolist()
 
         #Inserts
