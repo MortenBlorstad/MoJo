@@ -41,14 +41,18 @@ while True:
         if terminated[agent.player]:
             continue
         actions[agent.player] = agent.act(step, obs[f"player_{i}"])
-    
-    obs, reward, terminated, truncated, info = env.step(actions)
-    transition0 = Transition(obs["player_0"], actions[agent.player], reward, obs["player_0"], terminated["player_0"])
-    transition1 = Transition(obs["player_1"], actions[agent.player], reward, obs["player_1"], terminated["player_1"])
-    memory.push(*transition0)
-    memory.push(*transition1)
-    
     state = universe.predict(obs["player_0"])
+    obs, reward, terminated, truncated, info = env.step(actions)
+
+    next_state = universe.predict(obs["player_0"])
+    
+    transition0 = Transition(state, actions[agent.player], reward, next_state, terminated["player_0"])
+    #transition1 = Transition(obs["player_1"], actions[agent.player], reward, obs["player_1"], terminated["player_1"])
+    agent.learn()
+    agent.push_memory(*transition0)
+    #memory.push(*transition1)
+    
+    
     print(f"reward {reward} {universe.teampoints}, {universe.opponent_teampoints}, {universe.reward}")
     print(f"Step {step} completed")
     done = all(jnp.asarray(v) for v in terminated.values())

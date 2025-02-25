@@ -12,5 +12,11 @@ class MissionControl():
         pass
 
     def act(self, state:jnp.ndarray) -> jnp.ndarray:
-        raise NotImplementedError()
+        """
+        Given a state, returns a mission m/g of shape (24,24).
+        """
+        mission = jnp.ones((24, 24), dtype=int)
+
+        return mission
+    
         
