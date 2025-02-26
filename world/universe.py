@@ -87,15 +87,33 @@ class Universe():
         self.energy = Energy(self.horizont)
         self.scalar = NaiveScalarEncoder(env_params_ranges)
 
-    def get_reward(self, a: int, b: int) -> float:
+
+    def get_reward(self, unexplored_count: int) -> float:
         """Calculate the reward for the current step.
         Args:
             a (int): The points of the team
             b (int): The points of the opponent team"""
-        return (a - b) / (a + b + 1)
+        a,b = self.teampoints, self.opponent_teampoints
+        points_ratio = (a - b) / (a + b + 1)
+        n_units = self.unit_mask.sum()
+        n_units_inplay = self.units_inplay.sum()
+        unit_score = (n_units - n_units_inplay) / (n_units + 1)
+        unexplored_ratio = unexplored_count / (24*24)
+        return points_ratio + self.thiscore - unit_score*0.1 - unexplored_ratio * 0.1
+    
+    def get_one_hot_pos(self, idx:int)->np.ndarray:
+        available = self.unit_mask[idx]
+        one_hot_pos = np.zeros((1,24*24))
+        if not available:
+            return available, one_hot_pos, (-1,-1)
+        x, y = self.unit_positions[idx]
+        assert 0 <= x < 24 and 0 <= y < 24, f"Invalid coordinates: ({x}, {y})"
+
+        index = y * 24 + x # Convert 2D (x, y) to 1D index
+        one_hot_pos[0, index] = 1
+        return available, one_hot_pos, (x,y)
     
 
-    
     #s_{t:t+h} | o_{t}
     def predict(self, observation:dict):        
 
@@ -105,9 +123,11 @@ class Universe():
         self.teampoints = state.teampoints
         self.opponent_teampoints = state.opponent_teampoints
 
-        self.reward  = self.get_reward(self.teampoints, self.opponent_teampoints)
+       
         self.units_inplay = state.player_units_inplay
 
+        self.unit_positions = state.unit_positions
+        self.unit_mask = state.unit_mask
 
         self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)               
         self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
@@ -118,7 +138,9 @@ class Universe():
         #Update points
         self.thiscore = state.teampoints - self.totalscore
         self.totalscore += self.thiscore
-                
+        
+        
+        
         #Learn relic tiles        
         self.relics.learn(            
             state.relicPositions,   #Position of (visible) relic nodes 
@@ -130,7 +152,10 @@ class Universe():
         nebulas, astroids = self.nebula_astroid.predict(state.nebulas,state.asteroids, state.observeable_tiles, current_step=state.steps)
 
         #OBS: get unobserved_terrain before calling nan_to_num on nebulas & astr0oids. (nan == unobserved_terrain)        
-        unobserved_terrain = get_unobserved_terrain(nebulas,astroids)        
+        unobserved_terrain = get_unobserved_terrain(nebulas,astroids)
+        unexplored_count = unobserved_terrain[0].sum().item() # number of unexplored tiles
+              
+        self.reward  = self.get_reward(unexplored_count)     
 
         #Create list of predictions
         predictions = [jnp.nan_to_num(nebulas), jnp.nan_to_num(astroids), unobserved_terrain]
@@ -156,7 +181,6 @@ class Universe():
         )
 
 
-        
         # ✅ Corrected Concatenation
         stacked_array = np.concatenate(predictions, axis=0)  # Ensure correct axis
         stacked_array = np.expand_dims(stacked_array, axis=0)  # Expand to batch shape
@@ -175,7 +199,7 @@ class Universe():
 
         #     print("📏 Stacked array shape:", stacked_array.shape)
         #     raise ValueError(f"Stacked array contains NaN values in rows: {nan_rows}")
-        
+
         return stacked_array  
 
 

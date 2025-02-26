@@ -66,6 +66,10 @@ class State():
         # For obs struct see: https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/kits/README.md#observations 
         unit_mask = np.array(obs["units_mask"]) # shape (max_units, )
         unit_positions = np.array(obs["units"]["position"]) # shape (max_units, 2)
+
+        self.unit_positions = unit_positions[self.team_id]
+        self.unit_mask = unit_mask[self.team_id]
+
         
         self.player_units_count = self.count_units(unit_mask[self.team_id],unit_positions[self.team_id]) # SP_1: 24x24
         self.opponent_units_count = self.count_units(unit_mask[self.opp_team_id],unit_positions[self.opp_team_id]) # SP_2:24x24
@@ -105,8 +109,6 @@ class State():
         observed_relic_nodes_mask = np.array(obs["relic_nodes_mask"]) # shape (max_relic_nodes, )
         self.relic_nodes = self.get_relic_node_pos(observed_relic_nodes_mask,observed_relic_node_positions)
         '''
-
-
 
     def get_sparse_energy_map(self, unit_mask:np.ndarray,unit_positions:np.ndarray, unit_energy:np.ndarray)->np.ndarray:
         players_energies = np.zeros((24, 24,16), dtype=int)

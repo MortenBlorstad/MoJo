@@ -7,11 +7,12 @@ This will be inpsired by the Director paper.
 
 import jax.numpy as jnp
 
+
 class MissionControl():
     def __init__(self):
         pass
-
-    def act(self, state:jnp.ndarray) -> jnp.ndarray:
+    
+    def act(self, state:jnp.ndarray, idx) -> jnp.ndarray:
         """
         Given a state, returns a mission m/g of shape (24,24).
         """
