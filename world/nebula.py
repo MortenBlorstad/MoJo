@@ -559,6 +559,9 @@ class Nebula(base_component):
         Returns:
         jnp.ndarray: Modified array with normalized values.
         """
+        if arr.shape[1] == 0:
+            return arr
+        # Check if all values in the array are the same
         if jnp.all(arr == arr[:, 0].reshape(2,-1)):
             return arr
         # Identify indices where |value| > 1 (i.e., need to be fixed)

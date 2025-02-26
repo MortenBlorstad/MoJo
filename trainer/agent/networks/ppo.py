@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
 from torch.distributions import Categorical
+import numpy as np
 
 ################################## set device ##################################
 print("============================================================================================")
@@ -35,41 +36,90 @@ class RolloutBuffer:
         del self.is_terminals[:]
 
 
-class ActorCritic(nn.Module):
-    def __init__(self, state_dim, action_dim, has_continuous_action_space, action_std_init):
-        super(ActorCritic, self).__init__()
+def compute_conv_output_size(input_size, kernel_size, stride, padding=0, dilation=1):
+    """
+    Compute the output size (height/width) after a convolutional layer.
 
+    Args:
+        input_size (int): Input height or width.
+        kernel_size (int): Kernel/filter size.
+        stride (int): Stride size.
+        padding (int, optional): Padding applied. Default: 0.
+        dilation (int, optional): Dilation rate. Default: 1.
+
+    Returns:
+        int: Output height or width after applying convolution.
+    """
+    return ((input_size + 2 * padding - dilation * (kernel_size - 1) - 1) // stride) + 1
+
+class ActorCritic(nn.Module):
+    def __init__(self, state_dim, action_dim, has_continuous_action_space,
+                  action_std_init, image_size=None):
+        super(ActorCritic, self).__init__()
+        self.num_units = 16
         self.has_continuous_action_space = has_continuous_action_space
-        
+        self.image_size = image_size # (channel, height, width)
         if has_continuous_action_space:
             self.action_dim = action_dim
             self.action_var = torch.full((action_dim,), action_std_init * action_std_init).to(device)
+        
+        # Feature Extractor for Images (CNN)
+        if self.image_size is not None:
+            c_size, w_size, h_size = self.image_size
+            channel_sizes = [64, 64, 64]
+            kernel_sizes = [3, 3, 3]
+            strides = [2, 2, 1]  
+            paddings = [(k - 1) // 2 for k in kernel_sizes]  
+
+            self.feature_extractor = nn.Sequential(
+                nn.Conv2d(c_size, channel_sizes[0], kernel_size=kernel_sizes[0],
+                          padding=paddings[0], stride=strides[0], padding_mode="zeros"), 
+                nn.Tanh(),
+                nn.Conv2d(channel_sizes[0], channel_sizes[1], kernel_size=kernel_sizes[1],
+                          padding=paddings[1], stride=strides[1], padding_mode="zeros"),
+                nn.Tanh(),
+                nn.Conv2d(channel_sizes[1], channel_sizes[2], kernel_size=kernel_sizes[2],
+                          padding=paddings[2], stride=strides[2], padding_mode="zeros"),
+                nn.Tanh(),
+                nn.Flatten()
+            )
+
+            
+            for i in range(3):
+                w_size = compute_conv_output_size(w_size, kernel_sizes[i], strides[i], paddings[i])
+            feature_dim = w_size * w_size * 64
+            print("feature_dims", feature_dim)
+            
+        else:
+            feature_dim = state_dim  # MLP directly takes state_dim as input
+        
         # actor
         if has_continuous_action_space :
             self.actor = nn.Sequential(
-                            nn.Linear(state_dim, 64),
-                            nn.Tanh(),
+                            nn.Linear(feature_dim, 64),
+                            nn.SiLU(),
                             nn.Linear(64, 64),
-                            nn.Tanh(),
+                            nn.SiLU(),
                             nn.Linear(64, action_dim),
-                            nn.Tanh()
+                            nn.SiLU()
                         )
         else:
             self.actor = nn.Sequential(
-                            nn.Linear(state_dim, 64),
+                            nn.Linear(feature_dim, 64),
                             nn.Tanh(),
                             nn.Linear(64, 64),
                             nn.Tanh(),
-                            nn.Linear(64, action_dim),
+                            nn.Linear(64, action_dim * self.num_units),
+                            nn.Unflatten(dim=-1, unflattened_size=(self.num_units, action_dim)), # Reshape to (batch, 16, action_dim)
                             nn.Softmax(dim=-1)
                         )
         # critic
         self.critic = nn.Sequential(
-                        nn.Linear(state_dim, 64),
+                        nn.Linear(feature_dim, 64),
                         nn.Tanh(),
                         nn.Linear(64, 64),
                         nn.Tanh(),
-                        nn.Linear(64, 1)
+                        nn.Linear(64, self.num_units) # should this be changed to num_units? one value for each unit?
                     )
         
     def set_action_std(self, new_action_std):
@@ -80,11 +130,21 @@ class ActorCritic(nn.Module):
             print("WARNING : Calling ActorCritic::set_action_std() on discrete action space policy")
             print("--------------------------------------------------------------------------------------------")
 
-    def forward(self):
-        raise NotImplementedError
+    def forward(self, state):
+        if self.image_size is not None:
+            #state = state / 255.0  # Normalize image
+            state = self.feature_extractor(state)
+            print(f"Feature extractor output shape: {state.shape}")
+
+        return self.actor(state), self.critic(state)
     
     def act(self, state):
+        print("state", state.shape)
+        if self.image_size is not None:
+            #state = state / 255.0  # Normalize image
+            state = self.feature_extractor(state)
 
+        
         if self.has_continuous_action_space:
             action_mean = self.actor(state)
             cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
@@ -100,6 +160,9 @@ class ActorCritic(nn.Module):
         return action.detach(), action_logprob.detach(), state_val.detach()
     
     def evaluate(self, state, action):
+        if self.image_size is not None:
+            #state = state / 255.0  # Normalize
+            state = self.feature_extractor(state)
 
         if self.has_continuous_action_space:
             action_mean = self.actor(state)
@@ -122,7 +185,9 @@ class ActorCritic(nn.Module):
 
 
 class PPO:
-    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std_init=0.6):
+    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma,
+                  K_epochs, eps_clip, has_continuous_action_space, action_std_init=0.6,
+                  image_size = None):
 
         self.has_continuous_action_space = has_continuous_action_space
 
@@ -135,13 +200,15 @@ class PPO:
         
         self.buffer = RolloutBuffer()
 
-        self.policy = ActorCritic(state_dim, action_dim, has_continuous_action_space, action_std_init).to(device)
+        self.policy = ActorCritic(state_dim, action_dim, has_continuous_action_space,
+                                   action_std_init, image_size).to(device)
         self.optimizer = torch.optim.Adam([
                         {'params': self.policy.actor.parameters(), 'lr': lr_actor},
                         {'params': self.policy.critic.parameters(), 'lr': lr_critic}
                     ])
 
-        self.policy_old = ActorCritic(state_dim, action_dim, has_continuous_action_space, action_std_init).to(device)
+        self.policy_old = ActorCritic(state_dim, action_dim, has_continuous_action_space,
+                                       action_std_init, image_size).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         
         self.MseLoss = nn.MSELoss()
@@ -173,7 +240,7 @@ class PPO:
         print("--------------------------------------------------------------------------------------------")
 
     def select_action(self, state):
-
+        
         if self.has_continuous_action_space:
             with torch.no_grad():
                 state = torch.FloatTensor(state).to(device)
@@ -194,8 +261,16 @@ class PPO:
             self.buffer.actions.append(action)
             self.buffer.logprobs.append(action_logprob)
             self.buffer.state_values.append(state_val)
+            action = action.squeeze(0).detach().cpu().numpy()
+            
+            valid_action_form = np.zeros((16, 3), dtype=int)
+            #TODO: the last two dims are for zapping and attacking,
+            #  we need to add functionality to add these
 
-            return action.item()
+
+            # Fill the first column with original values
+            valid_action_form[:, 0] = action
+            return valid_action_form
 
     def update(self):
         # Monte Carlo estimate of returns
@@ -209,17 +284,18 @@ class PPO:
             
         # Normalizing the rewards
         rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
+        rewards = rewards.unsqueeze(-1).expand(-1, self.policy_old.num_units) # Expand rewards if it was (batch,) to (batch, num_units)
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-7)
 
         # convert list to tensor
-        old_states = torch.squeeze(torch.stack(self.buffer.states, dim=0)).detach().to(device)
+        old_states = torch.squeeze(torch.stack(self.buffer.states, dim=0),dim=1).detach().to(device)
         old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach().to(device)
         old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach().to(device)
         old_state_values = torch.squeeze(torch.stack(self.buffer.state_values, dim=0)).detach().to(device)
 
         # calculate advantages
         advantages = rewards.detach() - old_state_values.detach()
-
+        print(old_states.shape)
         # Optimize policy for K epochs
         for _ in range(self.K_epochs):
 
@@ -260,3 +336,4 @@ class PPO:
         
        
 
+    

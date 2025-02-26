@@ -94,6 +94,8 @@ class State():
         #Observed relic positions (Added by Jørgen 18.02.25)
         self.relicPositions = swapAndFilterObservation(obs['relic_nodes'])
 
+        self.player_units_inplay = self.get_units_inplay(unit_mask[self.team_id],unit_energies[self.team_id])
+
 
         '''
         #--------------- Removed by Jørgen. This is not needed? ---------------
@@ -116,6 +118,12 @@ class State():
         players_energies[dim2, dim3, available_unit] = unit_energy_masked
         return players_energies/400
 
+    def get_units_inplay(self, unit_mask: np.ndarray, unit_energy: np.ndarray,)->np.ndarray:
+        players_units_inplay = np.zeros((16,), dtype=int)
+        has_energy = np.where(unit_energy > 0, True, False)
+        players_units_inplay = has_energy & unit_mask
+        return players_units_inplay
+
 
 
     def count_units(self, unit_mask:np.ndarray, unit_positions:np.ndarray)->np.ndarray:
@@ -123,7 +131,7 @@ class State():
         available_unit = np.where(unit_mask)[0]
         player_available_unit_count = unit_positions[available_unit]
         np.add.at(player_units_count, tuple(player_available_unit_count.T), 1)
-        return player_units_count
+        return player_units_count / max(player_units_count.sum(), 1)
     
     #--------------- Removed by Jørgen. This is not needed? ---------------
     '''
