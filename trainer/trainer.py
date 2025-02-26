@@ -2,6 +2,13 @@
 import sys
 import os
 import json 
+import sys
+
+if sys.stderr is None:
+    sys.stderr = sys.__stderr__  # Reset stderr to the default
+    print("🔥 Restored sys.stderr. Now catching the real error.")
+
+
 
 
 import jax
@@ -17,47 +24,78 @@ from world.universe import Universe
 from replay_memory import ReplayMemory, Transition
 
 
-
+from agent.ppo_agent import PPOAgent
 from luxai_s3.wrappers import LuxAIS3GymEnv
 
-maxstep = 50
+
 env = LuxAIS3GymEnv( numpy_output = True)
 
-obs, info = env.reset()
 
-universe = Universe(player="player_0", observation=obs, configuration = info['params'], horizont=3)
-
-agents = [Agent(player="player_0", env_cfg = info['params']),
-           Agent(player="player_1", env_cfg = info['params'])]
 
 terminated = {'player_0': jnp.array(False), 'player_1': jnp.array(False)}
-memory = ReplayMemory(1000)
+print("============================================================================================")
+has_continuous_action_space = True  # continuous action space; else discrete
 
-while True:
-    step = obs["player_0"]["match_steps"]
-    print(f"Step {step} started")
-    actions = {}
-    for i, agent in enumerate(agents):
-        if terminated[agent.player]:
-            continue
-        actions[agent.player] = agent.act(step, obs[f"player_{i}"])
-    state = universe.predict(obs["player_0"])
-    obs, reward, terminated, truncated, info = env.step(actions)
+max_ep_len = 1000                   # max timesteps in one episode
+max_training_timesteps = int(3e6)   # break training loop if timeteps > max_training_timesteps
 
-    next_state = universe.predict(obs["player_0"])
-    
-    transition0 = Transition(state, actions[agent.player], reward, next_state, terminated["player_0"])
-    #transition1 = Transition(obs["player_1"], actions[agent.player], reward, obs["player_1"], terminated["player_1"])
-    agent.learn()
-    agent.push_memory(*transition0)
-    #memory.push(*transition1)
-    
-    
-    print(f"reward {reward} {universe.teampoints}, {universe.opponent_teampoints}, {universe.reward}")
-    print(f"Step {step} completed")
-    done = all(jnp.asarray(v) for v in terminated.values())
-    if done or step >= maxstep:
-        break
+print_freq = max_ep_len * 10        # print avg reward in the interval (in num timesteps)
+log_freq = max_ep_len * 2           # log avg reward in the interval (in num timesteps)
+save_model_freq = int(1e5)          # save model frequency (in num timesteps)
+
+action_std = 0.6                    # starting std for action distribution (Multivariate Normal)
+action_std_decay_rate = 0.05        # linearly decay action_std (action_std = action_std - action_std_decay_rate)
+min_action_std = 0.1                # minimum action_std (stop decay after action_std <= min_action_std)
+action_std_decay_freq = int(2.5e5)
+
+update_timestep = 50      # update policy every n timesteps
+
+directory = "Mojo/trainer/weights/PPO_preTrained"
+if not os.path.exists(directory):
+          os.makedirs(directory)
+
+directory = directory
+if not os.path.exists(directory):
+        os.makedirs(directory)
+
+from datetime import datetime
+# track total training time
+start_time = datetime.now().replace(microsecond=0)
+print("Started training at (GMT) : ", start_time)
+
+print("============================================================================================")
+
+for episode in range(2):
+    obs, info = env.reset()
+    agents = [PPOAgent(player="player_0", env_cfg = info['params']),
+            Agent(player="player_1", env_cfg = info['params'])]
+    while True:
+        step = obs["player_0"]["match_steps"]
+        print(f"Step {step} started")
+        actions = {}
+        for i, agent in enumerate(agents):
+            if terminated[agent.player]:
+                continue
+            if isinstance(agent, PPOAgent):
+                action = agent.select_action(step, obs[f"player_{i}"])
+                print(action)
+                actions[agent.player] = action
+            else:
+                action = agent.act(step, obs[f"player_{i}"])
+                print(action)
+                actions[agent.player] = action
+        # actions["player_0"] = actions["player_1"]
+        obs, reward, terminated, truncated, info = env.step(actions)
+        
+        agents[0].append_to_buffer(terminated[agent.player])   
+        if step > 1 and step % 10 == 0:
+            agents[0].learn()
+        done = all(jnp.asarray(v) for v in terminated.values())
+        truncated = all(jnp.asarray(v) for v in truncated.values())
+        print("done", done, truncated)
+        if done or truncated:
+            print("episode done")
+            break
 
     
 

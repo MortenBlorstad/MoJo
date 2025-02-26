@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import jax.numpy as jnp
+import numpy as np
 from jax import jit
 from world.utils import getObservation
 from world.obs_to_state import State
@@ -36,7 +37,7 @@ env_params_ranges = dict(
 
 class Universe():
 
-    def __init__(self, player:str, observation:jnp.ndarray, configuration:dict, horizont:int = 3, seed:int = None):
+    def __init__(self, player:str, configuration:dict, horizont:int = 3, seed:int = None):
       
         #The initial observation has this structure
         #-------------------------------------------------------------------------------------------
@@ -93,6 +94,8 @@ class Universe():
             b (int): The points of the opponent team"""
         return (a - b) / (a + b + 1)
     
+
+    
     #s_{t:t+h} | o_{t}
     def predict(self, observation:dict):        
 
@@ -103,7 +106,9 @@ class Universe():
         self.opponent_teampoints = state.opponent_teampoints
 
         self.reward  = self.get_reward(self.teampoints, self.opponent_teampoints)
-        
+        self.units_inplay = state.player_units_inplay
+
+
         self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)               
         self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
         
@@ -129,7 +134,7 @@ class Universe():
 
         #Create list of predictions
         predictions = [jnp.nan_to_num(nebulas), jnp.nan_to_num(astroids), unobserved_terrain]
-
+        
         #Add player position predictions        
         predictions.append(self.p0pos.predict(astroids[1:]))        
         predictions.append(self.p1pos.predict(astroids[1:]))
@@ -138,8 +143,8 @@ class Universe():
         #Predict Relic tiles        
         predictions.append(self.relics.predict())        
        
-        #Predict Energy        
-        predictions.append(self.energy.predict(current_step=state.steps))        
+        #Predict Energy  
+        predictions.append(jnp.nan_to_num(self.energy.predict(current_step=state.steps) ))        
         
         #Add the scalar parameters, encoded into a 24x24 grid        
         predictions.append(
@@ -150,9 +155,27 @@ class Universe():
             )
         )
 
+
         
-        stacked_array = jnp.concat(predictions)
-        print(stacked_array.shape)
+        # ✅ Corrected Concatenation
+        stacked_array = np.concatenate(predictions, axis=0)  # Ensure correct axis
+        stacked_array = np.expand_dims(stacked_array, axis=0)  # Expand to batch shape
+
+        # ✅ Find and report NaNs
+        # if np.isnan(stacked_array).any():
+        #     print("🚨 NaN detected in stacked_array!")
+
+        #     # Find NaN indices
+        #     nan_indices = np.where(np.isnan(stacked_array))
+        #     print("🔍 NaN found at indices:", nan_indices)
+
+        #     # Unique row indices in `dim=0` containing NaNs
+        #     nan_rows = np.unique(nan_indices[1])  # Adjust index if necessary
+        #     print("🚨 Rows containing NaNs:", nan_rows)
+
+        #     print("📏 Stacked array shape:", stacked_array.shape)
+        #     raise ValueError(f"Stacked array contains NaN values in rows: {nan_rows}")
+        
         return stacked_array  
 
 
