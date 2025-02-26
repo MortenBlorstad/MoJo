@@ -54,22 +54,34 @@ directory = "Mojo/trainer/weights/PPO_preTrained"
 if not os.path.exists(directory):
           os.makedirs(directory)
 
-directory = directory
 if not os.path.exists(directory):
         os.makedirs(directory)
+
+checkpoint_path = os.path.join(directory, "PPO.pth")
+print("save checkpoint path : " + checkpoint_path)
 
 from datetime import datetime
 # track total training time
 start_time = datetime.now().replace(microsecond=0)
 print("Started training at (GMT) : ", start_time)
 
-print("============================================================================================")
+update_timestep = 10
 
-for episode in range(2):
+print("============================================================================================")
+running_return = 0
+total_timesteps = 0
+for episode in range(3):
+    
     obs, info = env.reset()
+
     agents = [PPOAgent(player="player_0", env_cfg = info['params']),
             Agent(player="player_1", env_cfg = info['params'])]
+    
+    if os.path.exists(checkpoint_path):
+        agents[0].load(checkpoint_path)
+        print("loaded model from : " + checkpoint_path)
     while True:
+        total_timesteps += 1
         step = obs["player_0"]["match_steps"]
         print(f"Step {step} started")
         actions = {}
@@ -78,23 +90,28 @@ for episode in range(2):
                 continue
             if isinstance(agent, PPOAgent):
                 action = agent.select_action(step, obs[f"player_{i}"])
-                print(action)
                 actions[agent.player] = action
             else:
                 action = agent.act(step, obs[f"player_{i}"])
-                print(action)
                 actions[agent.player] = action
         # actions["player_0"] = actions["player_1"]
         obs, reward, terminated, truncated, info = env.step(actions)
-        
+        running_return += agents[0].universe.reward
         agents[0].append_to_buffer(terminated[agent.player])   
-        if step > 1 and step % 10 == 0:
-            agents[0].learn()
-        done = all(jnp.asarray(v) for v in terminated.values())
-        truncated = all(jnp.asarray(v) for v in truncated.values())
-        print("done", done, truncated)
-        if done or truncated:
+        done = step >= 100
+        if step > 1 and (step % update_timestep == 0 or done):
+            loss = agents[0].learn()
+            print(f"Step {step}: loss: {loss}: running return: {running_return/(total_timesteps)} score: player_0 {agents[0].universe.teampoints} player_1 {agents[0].universe.opponent_teampoints}")
+
+       
+        if done:
             print("episode done")
+            print("--------------------------------------------------------------------------------------------")
+            print("saving model at : " + checkpoint_path)
+            agents[0].save(checkpoint_path)
+            print("model saved")
+            print("Elapsed Time  : ", datetime.now().replace(microsecond=0) - start_time)
+            print("--------------------------------------------------------------------------------------------")
             break
 
     
