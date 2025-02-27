@@ -5,7 +5,7 @@ from argparse import Namespace
 import os
 import numpy as np
 
-from trainer.base_agent import Agent
+from ppo_agent import PPOAgent
 # from lux.config import EnvConfig
 from lux.kit import from_json
 ### DO NOT REMOVE THE FOLLOWING CODE ###
@@ -23,7 +23,9 @@ def agent_fn(observation, configurations):
     player = observation.player
     remainingOverageTime = observation.remainingOverageTime
     if step == 0:
-        agent_dict[player] = Agent(player, configurations["env_cfg"])
+        agent_dict[player] = PPOAgent(player, configurations["env_cfg"])
+        checkpoint_path = "MoJo/trainer/weights/PPO_preTrained/PPO.pth"
+        agent_dict[player].load(checkpoint_path)
     if "__raw_path__" in configurations:
         dirname = os.path.dirname(configurations["__raw_path__"])
     else:
