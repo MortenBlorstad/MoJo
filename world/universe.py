@@ -193,24 +193,11 @@ class Universe():
         )
 
 
-        # ✅ Corrected Concatenation
-        stacked_array = np.concatenate(predictions, axis=0)  # Ensure correct axis
+       
+        stacked_array = np.concatenate(predictions, axis=0)  
         stacked_array = np.expand_dims(stacked_array, axis=0)  # Expand to batch shape
 
-        # ✅ Find and report NaNs
-        # if np.isnan(stacked_array).any():
-        #     print("🚨 NaN detected in stacked_array!")
-
-        #     # Find NaN indices
-        #     nan_indices = np.where(np.isnan(stacked_array))
-        #     print("🔍 NaN found at indices:", nan_indices)
-
-        #     # Unique row indices in `dim=0` containing NaNs
-        #     nan_rows = np.unique(nan_indices[1])  # Adjust index if necessary
-        #     print("🚨 Rows containing NaNs:", nan_rows)
-
-        #     print("📏 Stacked array shape:", stacked_array.shape)
-        #     raise ValueError(f"Stacked array contains NaN values in rows: {nan_rows}")
+       
 
         return stacked_array  
 

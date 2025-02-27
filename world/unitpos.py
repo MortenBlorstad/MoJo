@@ -3,6 +3,7 @@ import jax.numpy as jnp
 
 class Unitpos(base_component):
 
+
     def __init__(self, horizon):
         super().__init__()
         self.horizon = horizon        
@@ -78,3 +79,7 @@ class Unitpos(base_component):
             map = self.probDistribute(map,astroidPredictions[i])           
             l.append(map) 
         return jnp.array(l)
+    
+
+
+    
