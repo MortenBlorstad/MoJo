@@ -25,12 +25,30 @@ from replay_memory import ReplayMemory, Transition
 
 
 from agent.ppo_agent import PPOAgent
-from luxai_s3.wrappers import LuxAIS3GymEnv
+from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
+
+
+import subprocess
+
+# Define the command as a list of arguments
+command = [
+    "luxai-s3",  # The Lux AI executable/command
+    "MoJo/trainer/agent/main.py",  # Path to the first main.py script (your agent)
+    "MoJo/agents/main.py",  # Path to the second main.py script (opponent)
+    "-o", "replay.json"  # Output file for the replay
+]
+
+# Run the command
+subprocess.run(command, check=True)
+
+
+
+
 
 
 env = LuxAIS3GymEnv( numpy_output = True)
 
-
+env = RecordEpisode(env, save_dir="MoJo/trainer/recorded_episodes")
 
 terminated = {'player_0': jnp.array(False), 'player_1': jnp.array(False)}
 print("============================================================================================")
@@ -50,12 +68,10 @@ action_std_decay_freq = int(2.5e5)
 
 update_timestep = 50      # update policy every n timesteps
 
-directory = "Mojo/trainer/weights/PPO_preTrained"
+directory = "MoJo/trainer/weights/PPO_preTrained"
 if not os.path.exists(directory):
           os.makedirs(directory)
 
-if not os.path.exists(directory):
-        os.makedirs(directory)
 
 checkpoint_path = os.path.join(directory, "PPO.pth")
 print("save checkpoint path : " + checkpoint_path)
@@ -70,16 +86,18 @@ update_timestep = 10
 print("============================================================================================")
 running_return = 0
 total_timesteps = 0
-for episode in range(3):
+
+for episode in range(1):
     
     obs, info = env.reset()
 
     agents = [PPOAgent(player="player_0", env_cfg = info['params']),
-            Agent(player="player_1", env_cfg = info['params'])]
-    
+    Agent(player="player_1", env_cfg = info['params'])]
+    agents[0].train()
     if os.path.exists(checkpoint_path):
         agents[0].load(checkpoint_path)
         print("loaded model from : " + checkpoint_path)
+
     while True:
         total_timesteps += 1
         step = obs["player_0"]["match_steps"]
@@ -88,12 +106,11 @@ for episode in range(3):
         for i, agent in enumerate(agents):
             if terminated[agent.player]:
                 continue
-            if isinstance(agent, PPOAgent):
-                action = agent.select_action(step, obs[f"player_{i}"])
-                actions[agent.player] = action
-            else:
-                action = agent.act(step, obs[f"player_{i}"])
-                actions[agent.player] = action
+           
+            action = agent.act(step, obs[f"player_{i}"])
+            actions[agent.player] = action
+            
+               
         # actions["player_0"] = actions["player_1"]
         obs, reward, terminated, truncated, info = env.step(actions)
         running_return += agents[0].universe.reward
@@ -114,7 +131,9 @@ for episode in range(3):
             print("--------------------------------------------------------------------------------------------")
             break
 
-    
+env.close()  
+
+
 
 
 
