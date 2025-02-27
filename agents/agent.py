@@ -1,6 +1,7 @@
-from agents.lux.utils import direction_to
+from lux.utils import direction_to
 import sys
 import numpy as np
+
 class Agent():
     def __init__(self, player: str, env_cfg) -> None:
         self.player = player

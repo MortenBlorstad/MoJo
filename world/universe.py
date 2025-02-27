@@ -66,6 +66,10 @@ class Universe():
 
         #The observable parameters
         self.configuration = configuration
+        self.unit_sap_range = configuration["unit_sap_range"]
+        self.unit_move_cost = configuration["unit_move_cost"]
+        self.unit_sap_cost = configuration["unit_sap_cost"]
+        self.unit_sensor_range = configuration["unit_sensor_range"]
 
         #Number of 'future universes' we predict
         self.horizont = horizont
@@ -87,6 +91,9 @@ class Universe():
         self.energy = Energy(self.horizont)
         self.scalar = NaiveScalarEncoder(env_params_ranges)
 
+
+
+        self.zap_options = jnp.zeros((24,24))
 
     def get_reward(self, unexplored_count: int) -> float:
         """Calculate the reward for the current step.
@@ -111,7 +118,7 @@ class Universe():
 
         index = y * 24 + x # Convert 2D (x, y) to 1D index
         one_hot_pos[0, index] = 1
-        return available, one_hot_pos, (x,y)
+        return available, one_hot_pos, (int(y),int(x))
     
 
     #s_{t:t+h} | o_{t}
@@ -160,9 +167,14 @@ class Universe():
         #Create list of predictions
         predictions = [jnp.nan_to_num(nebulas), jnp.nan_to_num(astroids), unobserved_terrain]
         
-        #Add player position predictions        
-        predictions.append(self.p0pos.predict(astroids[1:]))        
-        predictions.append(self.p1pos.predict(astroids[1:]))
+        #Add player position predictions 
+        p0pos = self.p0pos.predict(astroids[1:]) 
+        p1pos = self.p1pos.predict(astroids[1:])
+
+        self.zap_options = p1pos[1]
+           
+        predictions.append(p0pos)        
+        predictions.append(p1pos)
         
 
         #Predict Relic tiles        

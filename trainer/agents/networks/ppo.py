@@ -227,7 +227,9 @@ class PPO:
     def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma,
                   K_epochs, eps_clip, has_continuous_action_space, action_std_init=0.6,
                   image_size = None):
-
+        
+        self.training = True
+        
         self.has_continuous_action_space = has_continuous_action_space
 
         if has_continuous_action_space:
@@ -285,12 +287,12 @@ class PPO:
                 state = torch.FloatTensor(state).to(device)
                 one_hot_pos = torch.FloatTensor(one_hot_pos).to(device)
                 action, action_logprob, state_val = self.policy_old.act(state, one_hot_pos)
-
-            self.buffer.states.append(state)
-            self.buffer.one_hot_pos.append(one_hot_pos)
-            self.buffer.actions.append(action)
-            self.buffer.logprobs.append(action_logprob)
-            self.buffer.state_values.append(state_val)
+            if self.training:
+                self.buffer.states.append(state)
+                self.buffer.one_hot_pos.append(one_hot_pos)
+                self.buffer.actions.append(action)
+                self.buffer.logprobs.append(action_logprob)
+                self.buffer.state_values.append(state_val)
 
             return action.detach().cpu().numpy().flatten()
         else:
@@ -298,13 +300,13 @@ class PPO:
                 state = torch.FloatTensor(state).to(device)
                 one_hot_pos = torch.FloatTensor(one_hot_pos).to(device)
                 action, action_logprob, state_val = self.policy_old.act(state, one_hot_pos)
-            
-            self.buffer.states.append(state)
-            self.buffer.one_hot_pos.append(one_hot_pos)
-            self.buffer.actions.append(action)
-            self.buffer.logprobs.append(action_logprob)
-            self.buffer.state_values.append(state_val)
-            action = action.squeeze(0).detach().cpu().numpy()
+            if self.training:
+                self.buffer.states.append(state)
+                self.buffer.one_hot_pos.append(one_hot_pos)
+                self.buffer.actions.append(action)
+                self.buffer.logprobs.append(action_logprob)
+                self.buffer.state_values.append(state_val)
+                action = action.squeeze(0).detach().cpu().numpy()
             
             valid_action_form = np.zeros((16, 3), dtype=int)
             #TODO: the last two dims are for zapping and attacking,
