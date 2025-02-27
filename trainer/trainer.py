@@ -28,18 +28,18 @@ from agent.ppo_agent import PPOAgent
 from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 
 
-import subprocess
+# import subprocess
 
-# Define the command as a list of arguments
-command = [
-    "luxai-s3",  # The Lux AI executable/command
-    "MoJo/trainer/agent/main.py",  # Path to the first main.py script (your agent)
-    "MoJo/agents/main.py",  # Path to the second main.py script (opponent)
-    "-o", "replay.json"  # Output file for the replay
-]
+# # Define the command as a list of arguments
+# command = [
+#     "luxai-s3",  # The Lux AI executable/command
+#     "MoJo/trainer/agent/main.py",  # Path to the first main.py script (your agent)
+#     "MoJo/agents/main.py",  # Path to the second main.py script (opponent)
+#     "-o", "replay.json"  # Output file for the replay
+# ]
 
-# Run the command
-subprocess.run(command, check=True)
+# # Run the command
+# subprocess.run(command, check=True)
 
 
 
@@ -87,7 +87,7 @@ print("=========================================================================
 running_return = 0
 total_timesteps = 0
 
-for episode in range(1):
+for episode in range(3):
     
     obs, info = env.reset()
 
