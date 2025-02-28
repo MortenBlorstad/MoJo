@@ -10,7 +10,7 @@ if sys.stderr is None:
 
 
 
-
+import numpy as np
 import jax
 import jax.numpy as jnp
 import flax
@@ -113,7 +113,7 @@ for episode in range(3):
                
         # actions["player_0"] = actions["player_1"]
         obs, reward, terminated, truncated, info = env.step(actions)
-        running_return += agents[0].universe.reward
+        running_return += np.mean(agents[0].universe.reward)
         agents[0].append_to_buffer(terminated[agent.player])   
         done = step >= 100
         if step > 1 and (step % update_timestep == 0 or done):

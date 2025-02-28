@@ -1,6 +1,34 @@
 import numpy as np
 from world.utils import swapAndFilterObservation
 
+def positional_encoding(game_step, embedding_dim:int=64):
+    """
+    Generates a sinusoidal positional encoding for match_step and match_number.
+    
+    Args:
+    - match_step (int): The current step in the match (0-99).
+    - match_number (int): The match index (0-4).
+    - d_model (int): Dimensionality of encoding (default 16).
+    
+    Returns:
+    - np.array: Positional encoding of shape (d_model,)
+    """
+    pos = np.array([game_step])  # Shape: (2,)
+
+    # Create frequency scaling factors
+    i = np.arange(embedding_dim // 2)  # Half of d_model for sin, half for cos
+    denom = np.power(10000, (2 * i / embedding_dim))  # Scaling factor for each dimension
+
+    # Compute sine and cosine encoding
+    enc_sin = np.sin(pos[:, None] / denom)  # Shape: (2, d_model/2)
+    enc_cos = np.cos(pos[:, None] / denom)  # Shape: (2, d_model/2)
+
+    # Flatten and concatenate
+    encoding = np.concatenate([enc_sin.flatten(), enc_cos.flatten()])
+
+    return encoding
+
+
 class State():
     """
     Represents the game state for a player in the Lux AI Challenge.
@@ -49,6 +77,7 @@ class State():
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         self.team_id = 0 if self.player == "player_0" else 1
         self.opp_team_id = 1 if self.team_id == 0 else 0
+        self.relic_nodes = np.zeros((24, 24), dtype=int)
         self.make_state(obs)
 
     def make_state(self, obs:dict):
@@ -60,8 +89,11 @@ class State():
         #number of steps taken in the current game/episode
         self.steps = int(obs["steps"])
         
+        
         #number of steps taken in the current match
         self.match_steps = int(obs["match_steps"])
+
+        self.step_embedding = positional_encoding(self.match_steps, embedding_dim=64)
 
         # For obs struct see: https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/kits/README.md#observations 
         unit_mask = np.array(obs["units_mask"]) # shape (max_units, )
@@ -85,6 +117,9 @@ class State():
         #Ship positions, per team (Added by Jørgen 18.02.25)
         self.p0ShipPos = swapAndFilterObservation(obs['units']['position'][self.team_id])
         self.p1ShipPos = swapAndFilterObservation(obs['units']['position'][self.opp_team_id])
+
+        self.p0ShipPos_unfiltered = obs['units']['position'][self.team_id][:, [1, 0]]
+        
                 
         self.observeable_tiles = np.array(obs["sensor_mask"], dtype=int) #S_O: 24x24
 
@@ -100,15 +135,19 @@ class State():
 
         self.player_units_inplay = self.get_units_inplay(unit_mask[self.team_id],unit_energies[self.team_id])
 
+        
 
-        '''
+
+
+        
         #--------------- Removed by Jørgen. This is not needed? ---------------
         
         # added relic node to state. TODO we need to add functionality to add relic tiles
         observed_relic_node_positions = np.array(obs["relic_nodes"]) # shape (max_relic_nodes, 2)
         observed_relic_nodes_mask = np.array(obs["relic_nodes_mask"]) # shape (max_relic_nodes, )
-        self.relic_nodes = self.get_relic_node_pos(observed_relic_nodes_mask,observed_relic_node_positions)
-        '''
+        relic_nodes = self.get_relic_node_pos(observed_relic_nodes_mask, observed_relic_node_positions)
+
+        self.relic_nodes = np.where((relic_nodes > 0)& (self.relic_nodes==0), 1, self.relic_nodes)
 
     def get_sparse_energy_map(self, unit_mask:np.ndarray,unit_positions:np.ndarray, unit_energy:np.ndarray)->np.ndarray:
         players_energies = np.zeros((24, 24,16), dtype=int)
@@ -136,14 +175,14 @@ class State():
         return player_units_count / max(player_units_count.sum(), 1)
     
     #--------------- Removed by Jørgen. This is not needed? ---------------
-    '''
+ 
     def get_relic_node_pos(self, relic_nodes_mask:np.ndarray, relic_node_positions:np.ndarray)->np.ndarray:
         relic_node_grid = np.zeros((24, 24), dtype=int)
         visible_relics = np.where(relic_nodes_mask)[0]
         visible_relics_pos = relic_node_positions[visible_relics]
         np.add.at(relic_node_grid, tuple(visible_relics_pos.T), 1)
-        return relic_node_grid
-    '''
+        return relic_node_grid.T
+    
     
     def get_tile_type(self, tile_type:np.ndarray, type:int)->np.ndarray:
         """
