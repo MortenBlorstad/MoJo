@@ -13,6 +13,10 @@ from world.energy import Energy
 from world.scalarencoder import NaiveScalarEncoder
 from world.obs_to_state import State
 
+
+
+
+
 @jit
 def get_unobserved_terrain(nebulas:jnp.ndarray, astroids:jnp.ndarray)->jnp.ndarray:
     return jnp.where(jnp.isnan(nebulas) | jnp.isnan(astroids), 1, 0)
@@ -33,6 +37,43 @@ env_params_ranges = dict(
     energy_node_drift_magnitude=    list(range(3, 6)),
 )
 
+def normalize(x, min_val, max_val):
+    return (x - min_val) / (max_val - min_val)
+
+
+def positional_encoding(x, y, map_size):
+    return np.array([x / map_size[0], y / map_size[1]])
+
+
+
+def is_unit_within_radius(grid, unit_positions, radius):
+    """
+    Checks if any unit is within a given radius of any cell containing `1`.
+    
+    Args:
+    - grid (np.array): 2D array where `1` represents target cells.
+    - unit_positions (np.array): (N,2) array of unit (row, col) positions.
+    - radius (float): Maximum allowed distance.
+    
+    Returns:
+    - bool: True if at least one unit is within the radius of any `1` in the grid, else False.
+    """
+    # Find all positions where the grid has `1`s
+    target_positions = np.argwhere(grid == 1)  # Shape (M, 2), M = number of ones
+    if target_positions.size == 0:
+        return False
+
+
+
+
+    # Compute pairwise Euclidean distance between units and target positions
+    unit_positions = unit_positions[:, None, :]  # Reshape to (N,1,2) for broadcasting
+    target_positions = target_positions[None, :, :]  # Reshape to (1,M,2) for broadcasting
+
+    distances = np.linalg.norm(unit_positions - target_positions, axis=2)  # (N, M) distances
+
+    # Check if any unit is within the given radius of any target position
+    return np.any(distances <= radius)
 
 
 class Universe():
@@ -66,10 +107,15 @@ class Universe():
 
         #The observable parameters
         self.configuration = configuration
-        self.unit_sap_range = configuration["unit_sap_range"]
-        self.unit_move_cost = configuration["unit_move_cost"]
-        self.unit_sap_cost = configuration["unit_sap_cost"]
-        self.unit_sensor_range = configuration["unit_sensor_range"]
+        self.unit_sap_range = configuration["unit_sap_range"] # needed to compute sapping for agent
+
+        self.unit_sap_range_norm = normalize(self.unit_sap_range, min_val=3, max_val=7) #unit_sap_range=list(range(3, 8))
+
+        self.unit_move_cost = normalize(configuration["unit_move_cost"],min_val=1, max_val=5) # unit_move_cost=list(range(1, 6))
+        self.unit_sap_cost = normalize(configuration["unit_sap_cost"], min_val=30, max_val=50) #unit_sap_cost=list(range(30, 51))
+        self.unit_sensor_range = normalize(configuration["unit_sensor_range"],min_val=1,max_val=4) #unit_sensor_range=[1, 2, 3, 4]
+
+        self.scaler_features = np.array([self.unit_sap_range_norm, self.unit_move_cost, self.unit_sap_cost, self.unit_sensor_range])
 
         #Number of 'future universes' we predict
         self.horizont = horizont
@@ -95,19 +141,32 @@ class Universe():
 
         self.zap_options = jnp.zeros((24,24))
 
-    def get_reward(self, unexplored_count: int) -> float:
+    
+
+
+    def get_reward(self,state:State, unexplored_count: int) -> float:
         """Calculate the reward for the current step.
         Args:
             a (int): The points of the team
             b (int): The points of the opponent team"""
-        a,b = self.teampoints, self.opponent_teampoints
+        match_steps = state.match_steps
+        close_to_start = (np.sqrt(23**2 +23**2) - np.linalg.norm(state.p0ShipPos_unfiltered, axis=1)) / np.sqrt(23**2 +23**2) # (16x1)
+        
+        in_points_zone = int(is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius= 4))
+
+
+
+        a, b = self.teampoints, self.opponent_teampoints
         points_ratio = (a - b) / (a + b + 1)
         n_units = self.unit_mask.sum()
         n_units_inplay = self.units_inplay.sum()
         unit_score = (n_units - n_units_inplay) / (n_units + 1)
-        unexplored_ratio = unexplored_count / (24*24)
-        return points_ratio + self.thiscore - unit_score*0.1 - unexplored_ratio * 0.1
-    
+        unexplored_ratio = unexplored_count/(24*24) 
+
+        point_factor = np.where(in_points_zone, 1, 0.1)
+
+        return np.expand_dims(points_ratio + point_factor*self.thiscore - unit_score*0.01 - unexplored_ratio * 0.01 - 0.1*close_to_start * (100/(match_steps**1.5+100)), axis=0)
+
     def get_one_hot_pos(self, idx:int)->np.ndarray:
         available = self.unit_mask[idx]
         one_hot_pos = np.zeros((1,24*24))
@@ -139,6 +198,8 @@ class Universe():
         self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)               
         self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
         
+
+
         self.p0pos.learn(state.p0ShipPos)        
         self.p1pos.learn(state.p1ShipPos)        
         
@@ -162,7 +223,7 @@ class Universe():
         unobserved_terrain = get_unobserved_terrain(nebulas,astroids)
         unexplored_count = unobserved_terrain[0].sum().item() # number of unexplored tiles
               
-        self.reward  = self.get_reward(unexplored_count)     
+        self.reward  = self.get_reward(state, unexplored_count)     
 
         #Create list of predictions
         predictions = [jnp.nan_to_num(nebulas), jnp.nan_to_num(astroids), unobserved_terrain]
@@ -184,22 +245,26 @@ class Universe():
         predictions.append(jnp.nan_to_num(self.energy.predict(current_step=state.steps) ))        
         
         #Add the scalar parameters, encoded into a 24x24 grid        
-        predictions.append(
-             self.scalar.Encode(
-                unit_move_cost = 2,
-                nebula_tile_drift_speed=0.05,
-                unit_sap_cost = 50                
-            )
-        )
+        # predictions.append(
+        #      self.scalar.Encode(
+        #         unit_move_cost = 2,
+        #         nebula_tile_drift_speed=0.05,
+        #         unit_sap_cost = 50                
+        #     )
+        # )
 
 
-       
+        #Add positional encoding
+
+        step_embedding = np.expand_dims(state.step_embedding, axis=0) # Expand to batch shape
+        scalers = np.expand_dims(self.scaler_features, axis=0) # Expand to batch shape
+        
+
         stacked_array = np.concatenate(predictions, axis=0)  
         stacked_array = np.expand_dims(stacked_array, axis=0)  # Expand to batch shape
-
        
-
-        return stacked_array  
+        state = {"image": stacked_array, "step_embedding": step_embedding, "scalars":scalers} 
+        return state  
 
 
         
