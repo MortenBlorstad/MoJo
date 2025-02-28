@@ -48,23 +48,20 @@ def positional_encoding(x, y, map_size):
 
 def is_unit_within_radius(grid, unit_positions, radius):
     """
-    Checks if any unit is within a given radius of any cell containing `1`.
-    
+    Checks if each unit is within a given radius of any cell containing `1`.
+
     Args:
     - grid (np.array): 2D array where `1` represents target cells.
     - unit_positions (np.array): (N,2) array of unit (row, col) positions.
     - radius (float): Maximum allowed distance.
-    
+
     Returns:
-    - bool: True if at least one unit is within the radius of any `1` in the grid, else False.
+    - np.array: (N,) boolean array, True if the unit is within the radius of any `1`, else False.
     """
     # Find all positions where the grid has `1`s
     target_positions = np.argwhere(grid == 1)  # Shape (M, 2), M = number of ones
     if target_positions.size == 0:
-        return False
-
-
-
+        return np.zeros(len(unit_positions), dtype=bool)  # No targets, all False
 
     # Compute pairwise Euclidean distance between units and target positions
     unit_positions = unit_positions[:, None, :]  # Reshape to (N,1,2) for broadcasting
@@ -72,8 +69,16 @@ def is_unit_within_radius(grid, unit_positions, radius):
 
     distances = np.linalg.norm(unit_positions - target_positions, axis=2)  # (N, M) distances
 
-    # Check if any unit is within the given radius of any target position
-    return np.any(distances <= radius)
+    # Return True for each unit that is within the given radius of ANY target position
+    return np.any(distances <= radius, axis=1)  # (N,) boolean array
+
+
+def compute_distances_from_map_center(unit_positions, grid_size=(24, 24)):
+    # Compute the center of the grid
+    center_x, center_y = (grid_size[0] // 2, grid_size[1] // 2)  # (12, 12)
+    # Compute Manhattan distances
+    manhattan_distances = np.abs(unit_positions[:, 0] - center_x) + np.abs(unit_positions[:, 1] - center_y)
+    return manhattan_distances/(center_x + center_y - 2) # Normalize by maximum distance 
 
 
 class Universe():
@@ -150,11 +155,13 @@ class Universe():
             a (int): The points of the team
             b (int): The points of the opponent team"""
         match_steps = state.match_steps
+        steps = state.steps
+
         close_to_start = (np.sqrt(23**2 +23**2) - np.linalg.norm(state.p0ShipPos_unfiltered, axis=1)) / np.sqrt(23**2 +23**2) # (16x1)
         
-        in_points_zone = int(is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius= 4))
+        in_points_zone = is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius= 4)
 
-
+        distance_from_center = compute_distances_from_map_center(state.p0ShipPos_unfiltered)
 
         a, b = self.teampoints, self.opponent_teampoints
         points_ratio = (a - b) / (a + b + 1)
@@ -162,10 +169,12 @@ class Universe():
         n_units_inplay = self.units_inplay.sum()
         unit_score = (n_units - n_units_inplay) / (n_units + 1)
         unexplored_ratio = unexplored_count/(24*24) 
+        num_in_points_zone = in_points_zone.sum()
+        point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
 
-        point_factor = np.where(in_points_zone, 1, 0.1)
+        distance_reward = (distance_from_center + close_to_start) * 0.2*(505/(steps**1.333+505))
 
-        return np.expand_dims(points_ratio + point_factor*self.thiscore - unit_score*0.01 - unexplored_ratio * 0.01 - 0.1*close_to_start * (100/(match_steps**1.5+100)), axis=0)
+        return np.expand_dims(points_ratio + point_factor*self.thiscore - unit_score*0.01 - unexplored_ratio * 0.01 - distance_reward, axis=0)
 
     def get_one_hot_pos(self, idx:int)->np.ndarray:
         available = self.unit_mask[idx]
@@ -239,7 +248,7 @@ class Universe():
         
 
         #Predict Relic tiles        
-        predictions.append(self.relics.predict())        
+        predictions.append(jnp.nan_to_num(self.relics.predict()))   # quick fix: added jnp.nan_to_num to avoid NaNs in the output
        
         #Predict Energy  
         predictions.append(jnp.nan_to_num(self.energy.predict(current_step=state.steps) ))        

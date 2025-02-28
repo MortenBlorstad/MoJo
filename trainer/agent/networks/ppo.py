@@ -224,6 +224,13 @@ class ActorCritic(nn.Module):
             dist = MultivariateNormal(action_mean, cov_mat)
         else:
             action_probs = self.actor(state, one_hot_pos, scalars, step_embedding)
+            if torch.isnan(action_probs).any():  # fix: check if action_probs has any NaNs
+                print("action_probs contains NaNs")  # enhanced debug message for NaNs
+                print("state", torch.where(torch.isnan(state)))
+                print("one_hot_pos", torch.where(torch.isnan(one_hot_pos)))
+                print("scalars", torch.where(torch.isnan(scalars)))
+                print("step_embedding", torch.where(torch.isnan(step_embedding)))
+             
             dist = Categorical(action_probs)
 
         action = dist.sample()
