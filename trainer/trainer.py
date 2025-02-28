@@ -85,7 +85,7 @@ update_timestep = 10
 
 print("============================================================================================")
 
-for episode in range(4, 6):
+for episode in range(100):
     running_return = 0
     total_timesteps = 0
 
