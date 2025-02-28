@@ -46,7 +46,7 @@ class PPOAgent:
         K_epochs = 4
         action_std = 0.5  # Initial action std
         has_continuous_action_space = False
-        image_size = (26, 24, 24)
+        image_size = (25, 24, 24)
         #####################################################
         
         self.ppo_agent = PPO(state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs,
@@ -58,19 +58,6 @@ class PPOAgent:
         self.ppo_agent.buffer.rewards.append(reward)
         self.ppo_agent.buffer.is_terminals.append(done)
 
-    def act(self, step, obs, remainingOverageTime: int = 60):
-        state = self.universe.predict(obs)
-        actions = np.zeros((16, 3), dtype=int)
-        one_hot_pos = []
-        for worker_idx in range(16):
-            available, one_hot,__annotations__  = self.universe.get_one_hot_pos(worker_idx)
-            one_hot_pos.append(one_hot)
-        
-        one_hot_pos = torch.tensor(one_hot_pos).unsqueeze(0)
-        actions = self.ppo_agent.act(state, one_hot_pos)
-        units_inplay = self.universe.units_inplay
-        actions[~units_inplay] = (0, 0, 0)
-        return actions
     
     def handle_sap(self, actions, pos:np.ndarray):
         unit_sap_range = self.universe.unit_sap_range
@@ -93,18 +80,13 @@ class PPOAgent:
             available, one_hot, pos  = self.universe.get_one_hot_pos(worker_idx)
             one_hot_pos[0,worker_idx] = one_hot
             coordinates[worker_idx] = pos
+        
         actions = self.ppo_agent.select_action(state, one_hot_pos)
         units_inplay = self.universe.units_inplay
         actions[~units_inplay] = (0, 0, 0)
         actions = self.handle_sap(actions, coordinates)
         return actions
                 
-        # state = self.universe.predict(obs)
-        # print(f"Feature extractor output shape: {state.shape}")
-        # actions = self.ppo_agent.select_action(state)
-        # units_inplay = self.universe.units_inplay
-        # actions[~units_inplay] = (0, 0, 0)
-        # return actions
     
     def train(self):
         self.ppo_agent.training = True
