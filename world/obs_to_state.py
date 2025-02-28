@@ -1,5 +1,5 @@
 import numpy as np
-from world.utils import swapAndFilterObservation
+from world.utils import swapAndFilterObservation, get_symmetric_coordinates
 
 def positional_encoding(game_step, embedding_dim:int=64):
     """
@@ -181,8 +181,8 @@ class State():
         visible_relics = np.where(relic_nodes_mask)[0]
         visible_relics_pos = relic_node_positions[visible_relics]
         np.add.at(relic_node_grid, tuple(visible_relics_pos.T), 1)
+        np.add.at(relic_node_grid, get_symmetric_coordinates(tuple(visible_relics_pos.T)), 1)
         return relic_node_grid.T
-    
     
     def get_tile_type(self, tile_type:np.ndarray, type:int)->np.ndarray:
         """
