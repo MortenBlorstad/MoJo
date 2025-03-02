@@ -23,8 +23,8 @@ def getZapCoords(position, zaprange, probmap):
     #Add back global indexing
     x+=x_l 
     y+=y_l
-    x = max(x,23)
-    y = max(y,23)	
+    x = min(x,23)
+    y = min(y,23)	
     #Return target coordinates
     return (x,y),probmap[(x,y)]
 
