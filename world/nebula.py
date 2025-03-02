@@ -417,12 +417,12 @@ class Nebula(base_component):
                         print(enetering_direction,leaving_direction)
                         print(prev_observation_masked)
                         print(observation_masked)
-                    raise Exception(f"{enetering_direction} != {leaving_direction}")
+                        print(f"{enetering_direction} != {leaving_direction}")
 
-            if entering and not leaving:
-                self.direction = enetering_direction[0] #-1: (-1,1), 1: (1,-1)
-            else:
-                self.direction = leaving_direction[0] #-1: (-1,1), 1: (1,-1)
+                elif entering and not leaving:
+                    self.direction = enetering_direction[0] #-1: (-1,1), 1: (1,-1)
+                else:
+                    self.direction = leaving_direction[0] #-1: (-1,1), 1: (1,-1)
             
             self.update_change_rate(current_step)
             
