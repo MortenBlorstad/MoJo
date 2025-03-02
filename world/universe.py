@@ -213,7 +213,6 @@ class Universe():
         stacking_in_pointzone_penalty = np.zeros(16)
         stacking_in_pointzone_penalty = calculate_stacking_penalty(in_points_zone, state.player_units_count, state.p0ShipPos_unfiltered, stacking_in_pointzone_penalty)
         reward = np.expand_dims(points_ratio + point_factor*self.thiscore - unit_score*0.01 - unexplored_ratio * 0.01 - distance_reward, axis=0) + stacking_in_pointzone_penalty
-        print(f"reward: {reward}")
         return reward
 
     def get_one_hot_pos(self, idx:int)->np.ndarray:
