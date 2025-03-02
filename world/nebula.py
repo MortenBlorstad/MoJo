@@ -431,7 +431,7 @@ class Nebula(base_component):
             if dbg:
                 print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}, {entering} {leaving})")    
 
-        if not np.any(delta == -1) and not (entering or leaving):
+        if not np.any(delta == -1) and (not(entering or leaving) or enetering_direction != leaving_direction):
             #print(f"no change detected at change step {current_step}")
             self.prev_observation = observation
             self.prev_observable = observable
