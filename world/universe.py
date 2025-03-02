@@ -73,6 +73,37 @@ def is_unit_within_radius(grid, unit_positions, radius):
     return np.any(distances <= radius, axis=1)  # (N,) boolean array
 
 
+def calculate_stacking_penalty(in_points_zone, player_units_count, p0ShipPos_unfiltered, stacking_in_pointzone_penalty):
+    """
+    Calculates the stacking penalty for units in a designated zone.
+
+    Parameters:
+        in_points_zone (np.array): Boolean array indicating units in the zone (shape: (N,))
+        player_units_count (np.array): 2D array representing unit counts at each grid location (shape: (grid_x, grid_y))
+        p0ShipPos_unfiltered (np.array): Array of unit positions (shape: (N, 2))
+        stacking_in_pointzone_penalty (np.array): Penalty array (same shape as in_points_zone)
+
+    Returns:
+        np.array: Updated stacking penalty array
+    """
+    # Get indices of units in the zone
+    valid_indices = np.where(in_points_zone)[0]
+
+    if valid_indices.size > 0:
+        # Get positions of units in the zone
+        positions = p0ShipPos_unfiltered[valid_indices]
+
+        # Filter out invalid positions (-1, -1)
+        valid_positions_mask = (positions[:, 0] >= 0) & (positions[:, 1] >= 0)
+        valid_positions = positions[valid_positions_mask]
+        valid_indices = valid_indices[valid_positions_mask]  # Filter indices accordingly
+
+        if valid_positions.shape[0] > 0:
+            # Assign penalties only for valid indices
+            stacking_in_pointzone_penalty[valid_indices] = (1 - player_units_count[valid_positions[:, 0], valid_positions[:, 1]])/6
+    
+    return stacking_in_pointzone_penalty
+
 def compute_distances_from_map_center(unit_positions, grid_size=(24, 24)):
     # Compute the center of the grid
     center_x, center_y = (grid_size[0] // 2, grid_size[1] // 2)  # (12, 12)
@@ -172,9 +203,18 @@ class Universe():
         num_in_points_zone = in_points_zone.sum()
         point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
 
-        distance_reward = (distance_from_center + close_to_start) * (505/(steps**1.333+505))
+        if steps < 50:
+            factor = np.linspace(1, 0.2, 16)
+        else:
+            factor = np.linspace(0.5, 0.05, 16)*(505/(steps**1.333+505))
 
-        return np.expand_dims(points_ratio + point_factor*self.thiscore - unit_score*0.01 - unexplored_ratio * 0.01 - distance_reward, axis=0)
+        distance_reward = (distance_from_center + close_to_start) * factor
+
+        stacking_in_pointzone_penalty = np.zeros(16)
+        stacking_in_pointzone_penalty = calculate_stacking_penalty(in_points_zone, state.player_units_count, state.p0ShipPos_unfiltered, stacking_in_pointzone_penalty)
+        reward = np.expand_dims(points_ratio + point_factor*self.thiscore - unit_score*0.01 - unexplored_ratio * 0.01 - distance_reward, axis=0) + stacking_in_pointzone_penalty
+        print(f"reward: {reward}")
+        return reward
 
     def get_one_hot_pos(self, idx:int)->np.ndarray:
         available = self.unit_mask[idx]
