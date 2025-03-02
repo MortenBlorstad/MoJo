@@ -172,7 +172,7 @@ class Universe():
         num_in_points_zone = in_points_zone.sum()
         point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
 
-        distance_reward = (distance_from_center + close_to_start) * 0.2*(505/(steps**1.333+505))
+        distance_reward = (distance_from_center + close_to_start) * (505/(steps**1.333+505))
 
         return np.expand_dims(points_ratio + point_factor*self.thiscore - unit_score*0.01 - unexplored_ratio * 0.01 - distance_reward, axis=0)
 
@@ -203,9 +203,10 @@ class Universe():
 
         self.unit_positions = state.unit_positions
         self.unit_mask = state.unit_mask
-
-        self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)               
-        self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
+        
+        if state.steps <= 101:
+            self.nebula_astroid.learn(state.nebulas, state.asteroids, state.observeable_tiles, current_step=state.steps)               
+            self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
         
 
 
