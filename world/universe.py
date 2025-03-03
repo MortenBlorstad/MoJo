@@ -206,7 +206,7 @@ class Universe():
         if steps < 50:
             factor = np.linspace(1, 0.2, 16)
         else:
-            factor = np.linspace(0.5, 0.05, 16)*(505/(steps**1.333+505))
+            factor = np.linspace(0.5, 0.05, 16)*(505/(steps**1.5+505))
 
         distance_reward = (distance_from_center + close_to_start) * factor
 
