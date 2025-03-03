@@ -204,9 +204,9 @@ class Universe():
         point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
 
         if steps < 50:
-            factor = np.linspace(1, 0.2, 16)
+            factor = 0.5
         else:
-            factor = np.linspace(0.5, 0.05, 16)*(505/(steps**1.333+505))
+            factor = 0.05*(505/(steps**1.333+505))
 
         distance_reward = (distance_from_center + close_to_start) * factor
 
