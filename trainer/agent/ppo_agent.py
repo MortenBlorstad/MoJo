@@ -77,6 +77,7 @@ class PPOAgent:
         state = self.universe.predict(obs)
         one_hot_pos = np.zeros((1, 16, 24*24))
         coordinates = np.zeros((16, 2))
+        
         for worker_idx in range(16):
             available, one_hot, pos  = self.universe.get_one_hot_pos(worker_idx)
             one_hot_pos[0,worker_idx] = one_hot
