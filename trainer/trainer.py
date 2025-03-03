@@ -84,12 +84,12 @@ print("Started training at (GMT) : ", start_time)
 update_timestep = 10
 
 print("============================================================================================")
-running_return = 0
-total_timesteps = 0
 
-for episode in range(3):
-    
-    obs, info = env.reset()
+for episode in range(100):
+    running_return = 0
+    total_timesteps = 0
+
+    obs, info = env.reset(seed = episode)
 
     agents = [PPOAgent(player="player_0", env_cfg = info['params']),
     Agent(player="player_1", env_cfg = info['params'])]
@@ -97,32 +97,52 @@ for episode in range(3):
     if os.path.exists(checkpoint_path):
         agents[0].load(checkpoint_path)
         print("loaded model from : " + checkpoint_path)
+    
+    match_count = 0
+    player_0_score = 0
+    player_1_score = 0
 
     while True:
         total_timesteps += 1
+        
         step = obs["player_0"]["match_steps"]
-        print(f"Step {step} started")
+        print(f"Step {step} total_timesteps {total_timesteps} started")
         actions = {}
         for i, agent in enumerate(agents):
             if terminated[agent.player]:
                 continue
-           
             action = agent.act(step, obs[f"player_{i}"])
             actions[agent.player] = action
-            
-               
+                   
         # actions["player_0"] = actions["player_1"]
         obs, reward, terminated, truncated, info = env.step(actions)
         running_return += np.mean(agents[0].universe.reward)
         agents[0].append_to_buffer(terminated[agent.player])   
-        done = step >= 100
+        done = total_timesteps >= 505
         if step > 1 and (step % update_timestep == 0 or done):
             loss = agents[0].learn()
             print(f"Step {step}: loss: {loss}: running return: {running_return/(total_timesteps)} score: player_0 {agents[0].universe.teampoints} player_1 {agents[0].universe.opponent_teampoints}")
 
-       
+        
+        if step == 100 or step ==101:
+            print("match done", step, total_timesteps)
+            print("--------------------------------------------------------------------------------------------")
+            print("saving model at : " + checkpoint_path)
+            agents[0].save(checkpoint_path)
+            print("model saved")
+            print("Elapsed Time  : ", datetime.now().replace(microsecond=0) - start_time)
+            print("--------------------------------------------------------------------------------------------")
+            if agents[0].universe.teampoints > agents[0].universe.opponent_teampoints:
+                player_0_score += 1
+            elif agents[0].universe.opponent_teampoints > agents[0].universe.teampoints:
+                player_1_score += 1
+            match_count += 1
+    
         if done:
-            print("episode done")
+           
+
+            print("Game done") 
+            print(f"Game {match_count}/{5}: score: player_0 {player_0_score} - {player_1_score} player_1")
             print("--------------------------------------------------------------------------------------------")
             print("saving model at : " + checkpoint_path)
             agents[0].save(checkpoint_path)
@@ -130,6 +150,7 @@ for episode in range(3):
             print("Elapsed Time  : ", datetime.now().replace(microsecond=0) - start_time)
             print("--------------------------------------------------------------------------------------------")
             break
+        
 
 env.close()  
 

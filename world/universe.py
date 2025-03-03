@@ -14,6 +14,55 @@ from world.scalarencoder import NaiveScalarEncoder
 from world.obs_to_state import State
 
 
+def generate_arch_positions(start_pos=(0, 0), radius=18, num_positions=16):
+    """
+    Generates evenly spread positions in an arch from 0° to 90° relative to a given start position.
+
+    Parameters:
+        start_pos (tuple): The starting (x, y) position, default is (0,0).
+        radius (int): The radius of the arch.
+        num_positions (int): Number of positions to generate.
+
+    Returns:
+        np.array: A (num_positions, 2) array of (x, y) positions.
+    """
+    angles = np.linspace(0, np.pi / 2, num_positions)  # Convert degrees (0 to 90) to radians
+    positions = np.array([
+        (
+            start_pos[0] + radius * np.cos(angle),  # X-coordinate
+            start_pos[1] + radius * np.sin(angle)   # Y-coordinate
+        )
+        for angle in angles
+    ])
+
+    even_indices = positions[::2]  # Get positions at even indices (0,2,4,...)
+    odd_indices = positions[1::2][::-1]  # Get positions at odd indices in reverse order (15,13,11,...)
+    reordered_positions = np.zeros((num_positions, 2))
+    reordered_positions[::2] = even_indices  # Assign even indices
+    reordered_positions[1::2] = odd_indices  # Assign odd indices
+    #reordered_positions = np.vstack((even_indices, odd_indices))
+    
+    return reordered_positions
+
+def compute_distances_to_arch(unit_positions, arch_positions):
+    """
+    Computes the Euclidean distance from each unit position to its respective arch position.
+
+    Parameters:
+        unit_positions (np.array): (16,2) array of (x, y) positions of units.
+        arch_positions (np.array): (16,2) array of (x, y) positions in the arch.
+
+    Returns:
+        np.array: (16,) array of distances.
+    """
+    # Ensure inputs are valid
+    assert unit_positions.shape == (16, 2), "unit_positions must have shape (16,2)"
+    assert arch_positions.shape == (16, 2), "arch_positions must have shape (16,2)"
+
+    # Compute Euclidean distance for each corresponding unit and arch position
+    distances = np.linalg.norm(unit_positions - arch_positions, axis=1)
+
+    return distances
 
 
 
@@ -48,23 +97,20 @@ def positional_encoding(x, y, map_size):
 
 def is_unit_within_radius(grid, unit_positions, radius):
     """
-    Checks if any unit is within a given radius of any cell containing `1`.
-    
+    Checks if each unit is within a given radius of any cell containing `1`.
+
     Args:
     - grid (np.array): 2D array where `1` represents target cells.
     - unit_positions (np.array): (N,2) array of unit (row, col) positions.
     - radius (float): Maximum allowed distance.
-    
+
     Returns:
-    - bool: True if at least one unit is within the radius of any `1` in the grid, else False.
+    - np.array: (N,) boolean array, True if the unit is within the radius of any `1`, else False.
     """
     # Find all positions where the grid has `1`s
     target_positions = np.argwhere(grid == 1)  # Shape (M, 2), M = number of ones
     if target_positions.size == 0:
-        return False
-
-
-
+        return np.zeros(len(unit_positions), dtype=bool)  # No targets, all False
 
     # Compute pairwise Euclidean distance between units and target positions
     unit_positions = unit_positions[:, None, :]  # Reshape to (N,1,2) for broadcasting
@@ -72,8 +118,47 @@ def is_unit_within_radius(grid, unit_positions, radius):
 
     distances = np.linalg.norm(unit_positions - target_positions, axis=2)  # (N, M) distances
 
-    # Check if any unit is within the given radius of any target position
-    return np.any(distances <= radius)
+    # Return True for each unit that is within the given radius of ANY target position
+    return np.any(distances <= radius, axis=1)  # (N,) boolean array
+
+
+def calculate_stacking_penalty(in_points_zone, player_units_count, p0ShipPos_unfiltered, stacking_in_pointzone_penalty):
+    """
+    Calculates the stacking penalty for units in a designated zone.
+
+    Parameters:
+        in_points_zone (np.array): Boolean array indicating units in the zone (shape: (N,))
+        player_units_count (np.array): 2D array representing unit counts at each grid location (shape: (grid_x, grid_y))
+        p0ShipPos_unfiltered (np.array): Array of unit positions (shape: (N, 2))
+        stacking_in_pointzone_penalty (np.array): Penalty array (same shape as in_points_zone)
+
+    Returns:
+        np.array: Updated stacking penalty array
+    """
+    # Get indices of units in the zone
+    valid_indices = np.where(in_points_zone)[0]
+
+    if valid_indices.size > 0:
+        # Get positions of units in the zone
+        positions = p0ShipPos_unfiltered[valid_indices]
+
+        # Filter out invalid positions (-1, -1)
+        valid_positions_mask = (positions[:, 0] >= 0) & (positions[:, 1] >= 0)
+        valid_positions = positions[valid_positions_mask]
+        valid_indices = valid_indices[valid_positions_mask]  # Filter indices accordingly
+
+        if valid_positions.shape[0] > 0:
+            # Assign penalties only for valid indices
+            stacking_in_pointzone_penalty[valid_indices] = (1 - player_units_count[valid_positions[:, 0], valid_positions[:, 1]])/6
+    
+    return stacking_in_pointzone_penalty
+
+def compute_distances_from_map_center(unit_positions, grid_size=(24, 24)):
+    # Compute the center of the grid
+    center_x, center_y = (grid_size[0] // 2, grid_size[1] // 2)  # (12, 12)
+    # Compute Manhattan distances
+    manhattan_distances = np.abs(unit_positions[:, 0] - center_x) + np.abs(unit_positions[:, 1] - center_y)
+    return manhattan_distances/(center_x + center_y - 2) # Normalize by maximum distance 
 
 
 class Universe():
@@ -129,6 +214,9 @@ class Universe():
         #Other stuff
         self.totalscore = 0     #Overall score
         self.thiscore = 0       #Score current step    
+
+        self.opponent_totalscore = 0     #Overall score
+        self.opponent_thiscore = 0       #Score current step   
         
         self.nebula_astroid = NebulaAstroid(self.horizont)
         self.p0pos = Unitpos(self.horizont)
@@ -138,7 +226,7 @@ class Universe():
         self.scalar = NaiveScalarEncoder(env_params_ranges)
 
 
-
+        self.arc_positions = generate_arch_positions(start_pos=(0, 0), radius=18, num_positions=16)
         self.zap_options = jnp.zeros((24,24))
 
     
@@ -150,22 +238,48 @@ class Universe():
             a (int): The points of the team
             b (int): The points of the opponent team"""
         match_steps = state.match_steps
-        close_to_start = (np.sqrt(23**2 +23**2) - np.linalg.norm(state.p0ShipPos_unfiltered, axis=1)) / np.sqrt(23**2 +23**2) # (16x1)
+        steps = state.steps
+
+        #close_to_start = (np.sqrt(23**2 +23**2) - np.linalg.norm(state.p0ShipPos_unfiltered, axis=1)) / np.sqrt(23**2 +23**2) # (16x1)
         
-        in_points_zone = int(is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius= 4))
+        in_points_zone = is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius= 4)
 
+        #distance_from_center = compute_distances_from_map_center(state.p0ShipPos_unfiltered)
 
+        distance_from_arch = compute_distances_to_arch(state.p0ShipPos_unfiltered, self.arc_positions)
 
         a, b = self.teampoints, self.opponent_teampoints
         points_ratio = (a - b) / (a + b + 1)
+
+        a, b = self.thiscore, self.opponent_thiscore
+        this_points_ratio = (a - b) / (a + b + 1)
+
         n_units = self.unit_mask.sum()
         n_units_inplay = self.units_inplay.sum()
         unit_score = (n_units - n_units_inplay) / (n_units + 1)
         unexplored_ratio = unexplored_count/(24*24) 
+        num_in_points_zone = in_points_zone.sum()
+        point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
 
-        point_factor = np.where(in_points_zone, 1, 0.1)
+        relic_found = np.any(state.relic_nodes == 1)
 
-        return np.expand_dims(points_ratio + point_factor*self.thiscore - unit_score*0.01 - unexplored_ratio * 0.01 - 0.1*close_to_start * (100/(match_steps**1.5+100)), axis=0)
+        if steps < 50:
+            factor = 0.8
+        else:
+            if match_steps < 50:
+                factor = 0.25
+            elif relic_found:
+                factor = np.linspace(0.25,0.01, 16)
+            else:
+                factor = 0.5
+            #factor = 0.05*(505/(steps**1.333+505))
+
+        distance_reward = distance_from_arch*factor #(distance_from_center + close_to_start) * factor
+
+        stacking_in_pointzone_penalty = np.zeros(16)
+        stacking_in_pointzone_penalty = calculate_stacking_penalty(in_points_zone, state.player_units_count, state.p0ShipPos_unfiltered, stacking_in_pointzone_penalty)
+        reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - unit_score*0.01 - unexplored_ratio * 0.01 - distance_reward, axis=0) + stacking_in_pointzone_penalty
+        return reward
 
     def get_one_hot_pos(self, idx:int)->np.ndarray:
         available = self.unit_mask[idx]
@@ -178,6 +292,11 @@ class Universe():
         index = y * 24 + x # Convert 2D (x, y) to 1D index
         one_hot_pos[0, index] = 1
         return available, one_hot_pos, (int(y),int(x))
+    
+    def get_one_hot_unit_id(self, idx:int)->np.ndarray:
+        one_hot_pos = np.zeros((1,16))
+        one_hot_pos[0, idx] = 1
+        return one_hot_pos
     
 
     #s_{t:t+h} | o_{t}
@@ -194,9 +313,10 @@ class Universe():
 
         self.unit_positions = state.unit_positions
         self.unit_mask = state.unit_mask
-
-        self.nebula_astroid.learn(state.nebulas,state.asteroids,state.observeable_tiles, current_step=state.steps)               
-        self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
+        
+        if state.steps <= 101:
+            self.nebula_astroid.learn(state.nebulas, state.asteroids, state.observeable_tiles, current_step=state.steps)               
+            self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
         
 
 
@@ -205,7 +325,11 @@ class Universe():
         
         #Update points
         self.thiscore = state.teampoints - self.totalscore
+        self.opponent_thiscore = state.opponent_teampoints - self.opponent_totalscore
+
+
         self.totalscore += self.thiscore
+        self.opponent_totalscore += self.opponent_thiscore
         
         
         
@@ -239,7 +363,7 @@ class Universe():
         
 
         #Predict Relic tiles        
-        predictions.append(self.relics.predict())        
+        predictions.append(jnp.nan_to_num(self.relics.predict()))   # quick fix: added jnp.nan_to_num to avoid NaNs in the output
        
         #Predict Energy  
         predictions.append(jnp.nan_to_num(self.energy.predict(current_step=state.steps) ))        
@@ -257,13 +381,25 @@ class Universe():
         #Add positional encoding
 
         step_embedding = np.expand_dims(state.step_embedding, axis=0) # Expand to batch shape
-        scalers = np.expand_dims(self.scaler_features, axis=0) # Expand to batch shape
         
 
         stacked_array = np.concatenate(predictions, axis=0)  
         stacked_array = np.expand_dims(stacked_array, axis=0)  # Expand to batch shape
-       
-        state = {"image": stacked_array, "step_embedding": step_embedding, "scalars":scalers} 
+        
+
+        sum_score = max(self.teampoints+self.opponent_teampoints,1)
+        scalers = np.expand_dims(self.scaler_features, axis=0) # Expand to batch shape
+        new_features = np.array([[self.teampoints / sum_score, self.opponent_teampoints / sum_score]])  # Shape: (1,2)
+
+        scalers = np.concatenate((scalers, new_features), axis=1) # Shape: (1, 6)
+        
+        one_hot_unit_id = np.expand_dims(np.eye(16), axis=0)
+
+        
+        one_hot_unit_energy = np.diag(state.unit_energies) / 100 # init_unit_energy: int = 100, max_unit_energy: int = 400
+        one_hot_unit_energy = np.expand_dims(one_hot_unit_energy, axis=0)
+
+        state = {"image": stacked_array, "step_embedding": step_embedding, "scalars": scalers, "one_hot_unit_id": one_hot_unit_id, "one_hot_unit_energy": one_hot_unit_energy} 
         return state  
 
 
