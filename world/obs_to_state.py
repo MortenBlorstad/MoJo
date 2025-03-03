@@ -108,6 +108,7 @@ class State():
         
         # vi trenger denne også. TODO hvordan håndtere
         unit_energies = np.array(obs["units"]["energy"]) # shape (max_units, T)
+        self.unit_energies = unit_energies[self.team_id]
     
 
         self.player_sparse_energy_map = self.get_sparse_energy_map(unit_mask[self.team_id],unit_positions[self.team_id],unit_energies[self.team_id] )
