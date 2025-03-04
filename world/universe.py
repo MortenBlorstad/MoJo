@@ -241,7 +241,6 @@ class Universe():
         steps = state.steps
 
         #close_to_start = (np.sqrt(23**2 +23**2) - np.linalg.norm(state.p0ShipPos_unfiltered, axis=1)) / np.sqrt(23**2 +23**2) # (16x1)
-        
         in_points_zone = is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius= 4)
 
         #distance_from_center = compute_distances_from_map_center(state.p0ShipPos_unfiltered)
@@ -250,8 +249,8 @@ class Universe():
 
         a, b = self.teampoints, self.opponent_teampoints
         points_ratio = (a - b) / (a + b + 1)
-
         a, b = self.thiscore, self.opponent_thiscore
+        assert a>=0 and b>=0,f"{a} {b}"
         this_points_ratio = (a - b) / (a + b + 1)
 
         n_units = self.unit_mask.sum()
@@ -307,7 +306,11 @@ class Universe():
 
         self.teampoints = state.teampoints
         self.opponent_teampoints = state.opponent_teampoints
-
+        if state.match_steps == 0:
+            self.totalscore = 0     #Overall score
+            self.thiscore = 0       #Score current step    
+            self.opponent_totalscore = 0     #Overall score
+            self.opponent_thiscore = 0       #Score current step   
        
         self.units_inplay = state.player_units_inplay
 
