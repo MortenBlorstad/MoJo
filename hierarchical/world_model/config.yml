@@ -1,0 +1,53 @@
+world_model:
+
+# World model configuration
+  "image_size": [41, 24, 24]
+  "scalar_size": 6
+  "latent_dim": 1024 # Deterministic hidden state size
+  "hidden_dim": 512 # Internal processing size
+  "stoch": 32 #  Stochastic latent state size
+  "num_actions": 6 # acton values 6  
+  "num_units": 16 # Number of units to make actions
+  "discrete_actions": 16 # Discrete actions
+  "batch_size": 8 # Batch size
+  "model_lr": 0.0001 # Learning rate
+  "memory_capacity": 1000 # Replay buffer size
+  "memory_sequence_length": 2 # sequence length in replay buffer
+  step_embedding_dim: 64 # Step embedding size
+  "scalar_dim": 6 # Scalar size
+  "shared": False
+  "temp_post" : True
+  "temp_post": True
+  "std_act": 'sigmoid2'
+  "unimix_ratio": 0.01
+  "value_head": 'symlog_disc'
+  "reward_head": 'symlog_disc'
+  "reward_layers": 3
+  "units": 640
+  "cont_layers": 3
+  "value_layers": 3
+  "actor_layers": 3
+  "kl_free": 1.0
+  "cont_scale": 1.0
+  "dyn_scale": 0.5
+  "rep_scale": 0.1
+  "opt_eps": 1e-8
+  "grad_clip": 1000
+  "opt": 'adam'
+  "reward_scale": 1.0
+  "weight_decay": 0.0
+  "tau" : 0.005
+  "precision": 32
+  "cont_stoch_size": 32
+  "grad_heads": ['reward', 'cont']
+  "initial": 'learned'
+  "nomlr": False
+  "nosimsr": False
+
+  # MBR
+  "mask_ratio" : 0.5
+  "patch_size": 10 
+  "block_size": 4
+  
+  
+  

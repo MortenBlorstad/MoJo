@@ -158,7 +158,7 @@ class State():
         dim2, dim3 = unit_positions_masked[:,0],unit_positions_masked[:,1]
         #print("index",unit_positions_masked, dim2, dim3)
         players_energies[dim2, dim3, available_unit] = unit_energy_masked
-        return players_energies/400
+        return np.transpose(players_energies, (2, 0, 1))# device by 100 (start energy) to normalize the energy values
 
     def get_units_inplay(self, unit_mask: np.ndarray, unit_energy: np.ndarray,)->np.ndarray:
         players_units_inplay = np.zeros((16,), dtype=int)
