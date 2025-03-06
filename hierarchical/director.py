@@ -1,114 +1,266 @@
 import sys
-import numpy as np
-import sys
 import os
-from datetime import datetime
+import numpy as np
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from world.universe import Universe
 from hierarchical.config import Config
-from hierarchical.utils import direction_to, getZapCoords, InitPPO, InitVAE
-from hierarchical.ppoalg import PPO
+from hierarchical.utils import getZapCoordsOnly, InitWorker, InitManager
 from hierarchical.vae import VAE
+from hierarchical.directorlossfuncs import MaxCosineNP as MaxCosine, ExplorationReward
 
-class Director():
+class Director():    
    
-    def __init__(self, player: str, env_cfg) -> None:
-        self.player = player
-        self.opp_player = "player_1" if self.player == "player_0" else "player_0"
-        self.team_id = 0 if self.player == "player_0" else 1
-        self.opp_team_id = 1 if self.team_id == 0 else 0
-        np.random.seed(0)
-        self.env_cfg = env_cfg
-        
-        self.relic_node_positions = []
-        self.discovered_relic_nodes_ids = set()
-        self.unit_explore_locations = dict() 
+    def __init__(self, player: str, env_cfg, training = False) -> None:
 
-        self.u = Universe(player,env_cfg,horizont=3)
-        
-        self.cfg = Config().Get("Director")
-        
-        #self.worker = InitPPO(self.cfg["Worker"])
+        #Get variables
+        self.player = player
+        self.u = Universe(player, env_cfg, horizont=3)        
+        self.cfg = Config().Get("Director")   
+        self.clockTicks = self.cfg["TimeSteps_K"]
+        self.updateFreq = self.cfg["TimeSteps_E"]
+        self.numShips = 16
+        self.training = training
+
+        #Init WANDB for training
+        if training:
+            from hierarchical.wandbwrapper import WandbWrapper
+            #------------------------------------------------------------------
+            self.ww = WandbWrapper(self.cfg["usewandb"])
+            self.ww.wmloss = 0       #Add worldmodel loss property
+            self.ww.goalloss = 0     #Add goalmodel loss property
+            self.ww.mgrloss = []     #Add manager loss list (use average)
+            self.ww.wrkloss = []     #Add worker loss list (use average)            
+            #------------------------------------------------------------------        
+                
+        #Create a list of 'ShipActions' to keep track of when to update individual policies (per ship (16))  
+        self.policies = [self.ShipActions(self,idx) for idx in range(self.numShips)] 
+    
+        #Keep track of the raw output from Universe so we can train world model
+        self.universes = []
 
         #Load pretrained world model autoencoder
-        self.wm = VAE.Load(self.cfg["Worldmodel"]['modelfile'])
-        
-        #Create pretraindata
-        self.historysaveinterval = 10
-        self.history = []        
+        self.worldmodel = VAE.Load(self.cfg["Worldmodel"])
 
-    #Print from agent
-    def pp(self, *args, onlyForTeam = 0):
-        if self.team_id == onlyForTeam:
-            print(*args, file=sys.stderr) 
+        #Keep track of the output from world model so we can train goal autoencoder
+        self.wmstates = []
 
+        #Load pretrained goal autoencoder
+        self.goalmodel = VAE.Load(self.cfg["Goalmodel"])
+        self.goalstates = []
 
+        #Load the Muli Agent PPO with double critic - continous action space
+        self.manager = InitManager(self.cfg["Manager"])
+
+        #Load the Muli Agent PPO with single critic - discrete action space
+        self.worker = InitWorker(self.cfg["Worker"])        
+
+    #This function is called for all steps and should compute the ship actions
     def act(self, step: int, obs, remainingOverageTime: int = 60):
+        
+        #Get positions & energy
+        unitpos =  np.array(obs["units"]["position"][self.u.team_id]) 
+        unitene = np.array(obs["units"]["energy"][self.u.team_id])
 
-         
-        s = self.u.predict(obs)
-        sa = s["image"]
-        self.history.append(sa)
+        #Get x_(t:t+h) | o_t from universe. (Director paper uses x for the observation)
+        x = self.u.predict(obs)
+        if self.training:
+            self.universes.append(x)
 
-        if step % self.historysaveinterval == 0:
+        #Encode state with world model
+        self.s = np.squeeze(self.worldmodel.npencode(x["image"].reshape(1,25*24*24)))        
+        
+        #Keep track of states for training (still torch.tensor @ device)
+        if self.training:
+            self.wmstates.append(self.s)
+
+        #We need state as numpy array
+        self.s = np.nan_to_num(self.s.detach().cpu().numpy())       
+
+        #Get action per ship
+        action = [self.policies[idx].act(p[1],p[0],e,step) for idx,(p,e) in enumerate(zip(unitpos,unitene))]
+
+        #Check to see if we should update world model & goal model
+        if self.training:            
+            if (step > 0 and step % self.updateFreq == 0):                
+                self.update()
+
+            #Send data to WANDB
+            self.ww.report()
+
+        #Concat into np array and return actions for env
+        return np.array(action)
+    
+    def update(self):
+
+        #Update world model here
+        #...
+        self.ww.record("wmloss",3)
+
+        #Update goal model
+        l = self.goalmodel.backwardFromList(self.wmstates)
+        self.ww.record("goalloss",l)        
+
+        del self.universes[:]
+        del self.wmstates[:]        
+    
+    def save(self):
+        self.worldmodel.saveDescriptive(self.cfg["Worldmodel"]["modelfile"],"Worldmodel")
+        self.goalmodel.saveDescriptive(self.cfg["Goalmodel"]["modelfile"],"Goalmodel")
+        self.manager.saveDescriptive(self.cfg["Manager"]["modelfile"],"Manager")
+        self.worker.saveDescriptive(self.cfg["Worker"]["modelfile"],"Worker")
+    
+    class ShipActions():
+    
+        def __init__(self,parent,shipIndex):
+
+            self.parent = parent
+            self.shipIndex = shipIndex
+            self.reset()
+
+        def reset(self):
+            self.activelast = False
+            self.goal = None
+
+        def missionComplete(self):
+
+            if self.parent.training:
             
-            savedata = np.concat(self.history)
-            file = os.path.join(self.cfg["Worldmodel"]["datapath"], datetime.now().strftime("%d_%m_%Y_%H_%M_%S.npy"))             
-            with open('test.npy', 'wb') as f:
-                np.save(file, savedata)
-            self.history = []
-                
+                #Compute extrinsic & exploration rewards
+                r_extr = self.cumuativeExtrinsic
+                r_expl = ExplorationReward(self.goal,self.parent.s)
 
+                #Update manager with rewards
+                self.parent.manager.bufferList[self.shipIndex].reward(r_extr, r_expl)
+                self.parent.manager.bufferList[self.shipIndex].is_terminals.append(0)
 
-        """implement this function to decide what actions to send to each available unit. 
-        
-        step is the current timestep number of the game starting from 0 going up to max_steps_in_match * match_count_per_episode - 1.
-        """
-        unit_mask = np.array(obs["units_mask"][self.team_id]) # shape (max_units, )
-        unit_positions = np.array(obs["units"]["position"][self.team_id]) # shape (max_units, 2)
-        unit_energys = np.array(obs["units"]["energy"][self.team_id]) # shape (max_units, 1)
-        observed_relic_node_positions = np.array(obs["relic_nodes"]) # shape (max_relic_nodes, 2)
-        observed_relic_nodes_mask = np.array(obs["relic_nodes_mask"]) # shape (max_relic_nodes, )
-        team_points = np.array(obs["team_points"]) # points of each team, team_points[self.team_id] is the points of the your team
-        
-        # ids of units you can control at this timestep
-        available_unit_ids = np.where(unit_mask)[0]
-        # visible relic nodes
-        visible_relic_node_ids = set(np.where(observed_relic_nodes_mask)[0])
-        
-        actions = np.zeros((self.env_cfg["max_units"], 3), dtype=int)
+                #<Insert Manager dreaming here>
 
+                #Update mission control
+                l = self.parent.manager.update(self.shipIndex)
+                self.parent.ww.record("mgrloss",l)
 
-        # basic strategy here is simply to have some units randomly explore and some units collecting as much energy as possible
-        # and once a relic node is found, we send all units to move randomly around the first relic node to gain points
-        # and information about where relic nodes are found are saved for the next match
-        
-        # save any new relic nodes that we discover for the rest of the game.
-        for id in visible_relic_node_ids:
-            if id not in self.discovered_relic_nodes_ids:
-                self.discovered_relic_nodes_ids.add(id)
-                self.relic_node_positions.append(observed_relic_node_positions[id])
-            
-
-        # unit ids range from 0 to max_units - 1
-        for unit_id in available_unit_ids:
-            unit_pos = unit_positions[unit_id]
-            unit_energy = unit_energys[unit_id]
-            if len(self.relic_node_positions) > 0:
-                nearest_relic_node_position = self.relic_node_positions[0]
-                manhattan_distance = abs(unit_pos[0] - nearest_relic_node_position[0]) + abs(unit_pos[1] - nearest_relic_node_position[1])
-                
-                # if close to the relic node we want to hover around it and hope to gain points
-                if manhattan_distance <= 4:
-                    random_direction = np.random.randint(0, 5)
-                    actions[unit_id] = [random_direction, 0, 0]
-                else:
-                    # otherwise we want to move towards the relic node
-                    actions[unit_id] = [direction_to(unit_pos, nearest_relic_node_position), 0, 0]
             else:
-                # randomly explore by picking a random location on the map and moving there for about 20 steps
-                if step % 20 == 0 or unit_id not in self.unit_explore_locations:
-                    rand_loc = (np.random.randint(0, self.env_cfg["map_width"]), np.random.randint(0, self.env_cfg["map_height"]))
-                    self.unit_explore_locations[unit_id] = rand_loc
-                actions[unit_id] = [direction_to(unit_pos, self.unit_explore_locations[unit_id]), 0, 0]
-        return actions
+                self.parent.manager.bufferList[self.shipIndex].clear()
+
+        def setGoal(self):
+
+            #Let manager pick a goal for this ship
+            z = self.parent.manager.select_action(self.parent.s,self.shipIndex)
+
+            #reset cumuative extrinsic reward            
+            self.cumuativeExtrinsic = 0
+
+            #Decode latent goal into goal vector (1024) using goal VAE
+            gt = self.parent.goalmodel.npdecode(z)
+            self.goal = gt.detach().cpu().numpy()
+
+            #Reset clock
+            self.goalclock = self.parent.clockTicks            
+
+        def GetOneHot(self,e):
+
+            map = np.zeros(32)
+            map[self.shipIndex] = 1
+            map[self.shipIndex+self.parent.numShips] = e/100
+
+            return map
+        
+        def rewardShip(self,terminal):
+
+            if self.parent.training:
+
+                #Update worker with reward            
+                r = MaxCosine(self.goal,self.parent.s)
+                self.parent.worker.bufferList[self.shipIndex].reward(r)  
+                self.parent.worker.bufferList[self.shipIndex].is_terminals.append(terminal)          
+
+        def pickShipAction(self,x,y,e,step):
+
+            #Update (extrinsic) cumulative reward
+            self.cumuativeExtrinsic += self.parent.u.thiscore
+                        
+            #Decrement goal timer
+            self.goalclock-=1
+
+            #If expired: End mission & pick a new goal
+            if self.goalclock == 0:
+                self.missionComplete()
+                self.setGoal()
+
+            #Create the state, as seen for a single ship
+            shipstate = np.concat([
+                self.parent.s,
+                self.goal,
+                self.GetOneHot(e)
+            ])
+            
+            #Get the current buffer length for this ship
+            l = self.parent.worker.bufferList[self.shipIndex].length()  
+
+            if self.parent.training:              
+
+                #Check if it is update o'clock: timeout or last step in match
+                if (l > 0 and l % self.parent.updateFreq == 0) or (step == 100 and l > 0):
+
+                    #<Insert Worker dreaming here>
+
+                    #Update worker PPO
+                    l = self.parent.worker.update(self.shipIndex)
+                    self.parent.ww.record("wrkloss",l)        
+
+                if step == 100:
+                    self.missionComplete()
+                    self.reset()
+            else:
+                self.parent.worker.bufferList[self.shipIndex].clear()
+
+            #Get action from worker PPO
+            action = self.parent.worker.select_action(shipstate, self.shipIndex)
+            zapX,zapY = 0,0
+
+            #Was that an attempt at shooting?
+            if action == 5:
+                zapX,zapY = getZapCoordsOnly(x, y, self.parent.u.unit_sap_range, self.parent.u.zap_options)
+
+            return (action, zapX, zapY)            
+
+        def act(self,x,y,e,step):
+                
+                #Is ship in play this time step?
+                active = x != -1 and y != -1                    
+
+                #If ship was removed from map... 
+                if self.activelast and not active:
+
+                    #...we end the mission
+                    self.missionComplete()
+
+                    #and reward ship with notification that this was terminal
+                    self.rewardShip(1)
+
+                #Ship was spawned.
+                elif not self.activelast and active:                    
+                    self.setGoal()
+
+                #Alive and kicking....
+                elif self.activelast and active:
+                    
+                    #Reward ship notifying it is not terminal
+                    self.rewardShip(0)
+
+                #Active ships must take an action
+                if active:
+
+                    action = self.pickShipAction(x,y,e.item(),step)
+                
+                #For inactive ships we return zeros
+                else:
+                    action = (0,0,0)       
+                
+                #Update active state
+                self.activelast = active
+
+                #Return action picked by ship
+                return action

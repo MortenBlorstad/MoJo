@@ -49,6 +49,14 @@ class VAE(nn.Module):
 
     def decode(self, x):
         return self.decoder(x)
+    
+    def npdecode(self, x):
+        return self.decoder(torch.Tensor(x).to(self.device))
+
+    def npencode(self, x):
+        with torch.no_grad():
+            mean, _ = self.encode(torch.Tensor(x).to(self.device))
+            return mean
         
     def forward(self, x):
         mean, log_var = self.encode(x)
@@ -56,20 +64,18 @@ class VAE(nn.Module):
         x_hat = self.decode(z)  
         return x_hat, mean, log_var    
 
+
     def goal_loss(self, x, x_hat, mean, log_var):
         
         mse_loss = nn.functional.mse_loss(x_hat, x, reduction='sum')
         kld_loss = - 0.5 * torch.sum(1+ log_var - mean.pow(2) - log_var.exp())
-
+        
         return mse_loss + kld_loss
 
-
-    def loss_function(self, x, x_hat, mean, log_var):
-        reproduction_loss = nn.functional.binary_cross_entropy(x_hat, x, reduction='sum')        
-        KLD = - 0.5 * torch.sum(1+ log_var - mean.pow(2) - log_var.exp())
-
-        return reproduction_loss + KLD
-
+    
+    def backwardFromList(self,x):
+        return self.backward(torch.stack(x, dim=0))
+    
 
     def backward(self,x):
             
@@ -78,8 +84,7 @@ class VAE(nn.Module):
 
         self.optimizer.zero_grad()
 
-        x_hat, mean, log_var = self(x)
-        #loss = self.loss_function(x, x_hat, mean, log_var)
+        x_hat, mean, log_var = self(x)        
         loss = self.goal_loss(x, x_hat, mean, log_var)
         
         rval = loss.item()
@@ -90,24 +95,36 @@ class VAE(nn.Module):
         return rval
         
     
-    def save(self, PATH):
-        torch.save(self.state_dict(), PATH)
+    def save(self, path):        
+        torch.save(self.state_dict(), path)
+    
+    def saveDescriptive(self, path, name):        
+        self.save(path)
+        print("Saved",name,"to file",path)
 
     @staticmethod
     def __Device():
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     @staticmethod
-    def Create():
+    def Create(cfg):
+
         device = VAE.__Device()
-        model = VAE(device).to(device)
-        return model
+
+        return VAE(
+            device,
+            cfg['input_dim'],
+            cfg['hid1_dim'],
+            cfg['hid2_dim'],
+            cfg['latent_dim'],
+            cfg['lr']        
+        ).to(device)
 
     @staticmethod
-    def Load(PATH, EVAL = False):        
-        device = VAE.__Device()
-        model = VAE(device).to(device)        
-        model.load_state_dict(torch.load(PATH, weights_only=True))
+    def Load(cfg, EVAL = False):  
+
+        model = VAE.Create(cfg)
+        model.load_state_dict(torch.load(cfg['modelfile'], weights_only=True))
         if EVAL:
             model.eval()
         return model

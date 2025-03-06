@@ -14,40 +14,41 @@ import jax.numpy as jnp
 mojo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, mojo_path)  # Ensure it is searched first
 
+from hierarchical.config import Config
 from base_agent import Agent
 from director import Director
 
 from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 
+cfg = Config().Get("Trainer")
 env = LuxAIS3GymEnv( numpy_output = True)
-#env = RecordEpisode(env, save_dir="MoJo/trainer/recorded_episodes")
-
-terminated = {'player_0': jnp.array(False), 'player_1': jnp.array(False)}
+if cfg['logepisodes']:
+    env = RecordEpisode(env, save_dir=cfg['episodelogdir'])
 
 num_games = 1
 
 for game in range(num_games):
+
+    print("Starting game",game+1)
     
     obs, info = env.reset()
 
     agents = [
-        Director(player="player_0", env_cfg = info['params']),
+        Director(player="player_0", env_cfg = info['params'],training=True),
         Agent(player="player_1", env_cfg = info['params'])
     ]
     done = False
 
     while not done:
         step = obs["player_0"]["match_steps"]
-        print("Game =",game," step =",step)
         
         actions = {}
-        for i, agent in enumerate(agents):
-            if terminated[agent.player]:
-                continue
-           
+        for i, agent in enumerate(agents):           
             action = agent.act(step, obs[f"player_{i}"])
             actions[agent.player] = action        
-        obs, reward, terminated, truncated, info = env.step(actions)
-        done = step == 100            
+        obs, reward, _, _, _ = env.step(actions)
+        done = step == 100
 
+    if game > 0 and game % cfg['modelSaveFrequency']:
+        agents[0].save()
 env.close()
