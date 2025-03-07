@@ -27,7 +27,7 @@ env = LuxAIS3GymEnv( numpy_output = True)
 if cfg['logepisodes']:
     env = RecordEpisode(env, save_dir=cfg['episodelogdir'])
 
-num_games = 3
+num_games = 100
 games_won = 0
 for game in range(num_games+1):
     game_step = 0
