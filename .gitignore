@@ -11,6 +11,10 @@ __pycache__/
 hierarchical/weights/*
 !hierarchical/weights/.gitkeep
 
+# ignore episodes
+hierarchical/data/episodes/*
+!hierarchical/data/episodes/.gitkeep
+
 # Virtual environments
 venv/
 .venv/
