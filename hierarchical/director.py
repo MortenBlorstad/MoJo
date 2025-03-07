@@ -10,6 +10,7 @@ from hierarchical.utils import getZapCoordsOnly, InitWorker, InitManager
 from hierarchical.vae import VAE
 from hierarchical.directorlossfuncs import MaxCosineNP as MaxCosine, ExplorationReward
 from world_model.world_model import WorldModel
+import torch
 
 class Director():    
    
@@ -62,16 +63,30 @@ class Director():
 
     #This function is called for all steps and should compute the ship actions
     def act(self, step: int, obs, remainingOverageTime: int = 60):
+        #Get x_(t:t+h) | o_t from universe. (Director paper uses x for the observation)
+        x = self.u.predict(obs)
+
+        
+        # Get the current state of the game (state: (latent, action))
+        is_first = step <= 1
+        if is_first:
+            with torch.no_grad():
+                latent= self.worldmodel.dynamics.initial(batch_size=1)
+                # x = {key: torch.tensor(np.array(x[key]),dtype=torch.float32).view(1, 1, *x[key].shape[1:]).to(self.worldmodel.device) for key in x}
+                # print("First step", x.keys())
+                action = torch.zeros((16, 1), dtype=torch.float32).to(self.worldmodel.device)
+                self.state = (latent, action)
+
+
         
         #Get positions & energy
         unitpos =  np.array(obs["units"]["position"][self.u.team_id]) 
         unitene = np.array(obs["units"]["energy"][self.u.team_id])
 
-        #Get x_(t:t+h) | o_t from universe. (Director paper uses x for the observation)
-        x = self.u.predict(obs)
+        
         
         # get state
-        s = self.worldmodel.predict(x)
+        s, latent = self.worldmodel.predict(x, self.state, is_first) #s: latent representation
 
     
              
@@ -97,6 +112,8 @@ class Director():
             
 
         #Concat into np array and return actions for env
+        self.state = (latent, action[:,0])
+
         return action
     
     def update(self):

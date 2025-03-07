@@ -8,16 +8,16 @@ from world_model import utils
 import numpy as np
 
 
-"""
-h_t: hidden state at time t
-z_t: latent state at time t
-o_t: observation at time t
-a_t: action at time t
-q(): encoder - Representation Model z_t = q(z_t | h_t, o_t)
-f(): Recurrent Model h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
-t(): transition Predictor  \hat{z}_t ~ t(hat{z}_t  | h_t)
-p(): decoder - Observation Model o_t = p(o_t | h_t, z_t)
-"""
+# """
+# h_t: hidden state at time t
+# z_t: latent state at time t
+# o_t: observation at time t
+# a_t: action at time t
+# q(): encoder - Representation Model z_t = q(z_t | h_t, o_t)
+# f(): Recurrent Model h_t = f(h_{t-1}, z_{t-1}, a_{t-1})
+# t(): transition Predictor  \hat{z}_t ~ t(hat{z}_t  | h_t)
+# p(): decoder - Observation Model o_t = p(o_t | h_t, z_t)
+# """
 
 class GRUCell(nn.Module):
     def __init__(self, inp_size, size, norm=False, act=torch.tanh, update_bias=-1):
@@ -798,12 +798,13 @@ class RSSM(nn.Module):
             if embed is None:
                 shape = list(prev_action.shape[:-1]) + [self.latent_dim]
                 embed = torch.zeros(shape)
+                
             # (batch, stoch * discrete_num) -> (batch, stoch * discrete_num + action, embed)
             x = torch.cat([prev_stoch, prev_action, embed], -1)
         else:
+
             x = torch.cat([prev_stoch, prev_action], -1)
         # (batch, stoch * discrete_num + action, embed) -> (batch, hidden)
-
         x = self.fc_pre_gru(x)
 
         deter = prev_state["hidden"]

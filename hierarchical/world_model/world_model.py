@@ -486,15 +486,21 @@ class WorldModel(nn.Module):
         true_post = {k: v.detach() for k, v in true_post.items()}
         return true_post, context, metrics
 
-    def predict(self, x):
+    def predict(self, x, state, is_first):
         with torch.no_grad():
-            s = torch.rand(1, 1024)
-        # post, prior = self.dynamics.observe(
-        #             embed, actions, is_first
-        #         )
+            batch_size = 1
+            sequence_length = 1
+            latent, action = state
+            x = {key: torch.tensor(x[key],dtype=torch.float32).view(1, 1, *x[key].shape[1:]).to(self.device) for key in x}
+            action = torch.tensor(action).view(batch_size, sequence_length, -1)
+            action = self.one_hot_flatten_actions(action, self._config["num_actions"]).squeeze(1).to(self.device)
+          
+            is_first = torch.tensor(is_first,dtype=torch.int8).view(batch_size,-1).to(self.device)
+            embed = self.encoder(x).squeeze(1)
+            latent, _ = self.dynamics.obs_step(latent, action, embed, is_first)
+            feat = self.dynamics.get_feat(latent) # latent representation of observation
 
-        #self.dynamics.get_feat(post)
-        return s
+        return feat, latent
 
     def add_to_memory(self,step, state, action, reward, is_first, done):
         if step == 0:
