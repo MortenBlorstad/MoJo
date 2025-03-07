@@ -233,6 +233,12 @@ def prmap(arr, header = None):
                 print(''.join(mapvals(arr[i])))
                 if(i != (shp[0]-1)):
                     print(''.join(mapline(shp[1])))            
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+            print(''.join(mapstartstop(shp[1],False))) 
+=======
+>>>>>>> main
             print(''.join(mapstartstop(shp[1],False))) 
 
 
@@ -251,4 +257,9 @@ def get_symmetric_coordinates(indices:np.array, nrows = 24, ncols = 24):
         np.ndarray: Array with swapped and transformed (j, i) coordinates.
     """
     i, j = indices
+<<<<<<< HEAD
     return ncols-j-1, nrows-i-1  # Swap i and j
+=======
+    return ncols-j-1, nrows-i-1  # Swap i and j
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main

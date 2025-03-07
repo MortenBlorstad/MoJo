@@ -417,12 +417,29 @@ class Nebula(base_component):
                         print(enetering_direction,leaving_direction)
                         print(prev_observation_masked)
                         print(observation_masked)
+<<<<<<< HEAD
                         print(f"{enetering_direction} != {leaving_direction}")
 
+=======
+<<<<<<< HEAD
+                    raise Exception(f"{enetering_direction} != {leaving_direction}")
+
+            if entering and not leaving:
+                self.direction = enetering_direction[0] #-1: (-1,1), 1: (1,-1)
+            else:
+                self.direction = leaving_direction[0] #-1: (-1,1), 1: (1,-1)
+=======
+                        print(f"{enetering_direction} != {leaving_direction}")
+
+>>>>>>> main
                 elif entering and not leaving:
                     self.direction = enetering_direction[0] #-1: (-1,1), 1: (1,-1)
                 else:
                     self.direction = leaving_direction[0] #-1: (-1,1), 1: (1,-1)
+<<<<<<< HEAD
+=======
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
             
             self.update_change_rate(current_step)
             
@@ -431,7 +448,15 @@ class Nebula(base_component):
             if dbg:
                 print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}, {entering} {leaving})")    
 
+<<<<<<< HEAD
         if not np.any(delta == -1) and (not(entering or leaving) or enetering_direction != leaving_direction):
+=======
+<<<<<<< HEAD
+        if not np.any(delta == -1) and not (entering or leaving):
+=======
+        if not np.any(delta == -1) and (not(entering or leaving) or enetering_direction != leaving_direction):
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
             #print(f"no change detected at change step {current_step}")
             self.prev_observation = observation
             self.prev_observable = observable

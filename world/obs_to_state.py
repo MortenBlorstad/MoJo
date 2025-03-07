@@ -1,5 +1,13 @@
 import numpy as np
+<<<<<<< HEAD
 from world.utils import swapAndFilterObservation, get_symmetric_coordinates
+=======
+<<<<<<< HEAD
+from world.utils import swapAndFilterObservation
+=======
+from world.utils import swapAndFilterObservation, get_symmetric_coordinates
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
 
 def positional_encoding(game_step, embedding_dim:int=64):
     """
@@ -108,7 +116,14 @@ class State():
         
         # vi trenger denne også. TODO hvordan håndtere
         unit_energies = np.array(obs["units"]["energy"]) # shape (max_units, T)
+<<<<<<< HEAD
         self.unit_energies = unit_energies[self.team_id]
+=======
+<<<<<<< HEAD
+=======
+        self.unit_energies = unit_energies[self.team_id]
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
     
 
         self.player_sparse_energy_map = self.get_sparse_energy_map(unit_mask[self.team_id],unit_positions[self.team_id],unit_energies[self.team_id] )
@@ -158,7 +173,7 @@ class State():
         dim2, dim3 = unit_positions_masked[:,0],unit_positions_masked[:,1]
         #print("index",unit_positions_masked, dim2, dim3)
         players_energies[dim2, dim3, available_unit] = unit_energy_masked
-        return players_energies/400
+        return np.transpose(players_energies, (2, 0, 1))# device by 100 (start energy) to normalize the energy values
 
     def get_units_inplay(self, unit_mask: np.ndarray, unit_energy: np.ndarray,)->np.ndarray:
         players_units_inplay = np.zeros((16,), dtype=int)
@@ -182,9 +197,21 @@ class State():
         visible_relics = np.where(relic_nodes_mask)[0]
         visible_relics_pos = relic_node_positions[visible_relics]
         np.add.at(relic_node_grid, tuple(visible_relics_pos.T), 1)
+<<<<<<< HEAD
         np.add.at(relic_node_grid, get_symmetric_coordinates(tuple(visible_relics_pos.T)), 1)
         return relic_node_grid.T
     
+=======
+<<<<<<< HEAD
+        return relic_node_grid.T
+    
+    
+=======
+        np.add.at(relic_node_grid, get_symmetric_coordinates(tuple(visible_relics_pos.T)), 1)
+        return relic_node_grid.T
+    
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
     def get_tile_type(self, tile_type:np.ndarray, type:int)->np.ndarray:
         """
             tile_type: 24x24 with values 0,1 or 2

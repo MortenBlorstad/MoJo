@@ -1,0 +1,73 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+*.dll
+*.dylib
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+pip-selfcheck.json
+
+# Logs and debugging
+*.log
+debug.log
+*.out
+*.err
+
+# Unit test / coverage reports
+.coverage
+*.cover
+htmlcov/
+*.py,cover
+.cache
+nosetests.xml
+coverage.xml
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# macOS system files
+.DS_Store
+
+# Windows system files
+Thumbs.db
+
+# VS Code settings
+.vscode/
+*.code-workspace
+
+# JetBrains (PyCharm, IntelliJ) settings
+.idea/
+
+# Sublime Text
+*.sublime*
+
+# Spyder IDE
+.spyderproject
+.spyderworkspace
+
+# MyPy type checking
+.mypy_cache/
+
+# Poetry dependency management
+poetry.lock
+
+# Pipenv dependency management
+Pipfile.lock
+
+# PyInstaller
+*.spec
+dist/
+build/
+
+# Jupyter Notebook outputs
+**/*.ipynb_checkpoints
+
+# Environment variables
+.env
+.env.local

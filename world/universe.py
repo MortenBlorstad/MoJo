@@ -307,6 +307,11 @@ class Universe():
 
         self.teampoints = state.teampoints
         self.opponent_teampoints = state.opponent_teampoints
+        if state.match_steps == 0:
+            self.totalscore = 0     #Overall score
+            self.thiscore = 0       #Score current step    
+            self.opponent_totalscore = 0     #Overall score
+            self.opponent_thiscore = 0       #Score current step   
 
        
         self.units_inplay = state.player_units_inplay
@@ -366,7 +371,12 @@ class Universe():
         predictions.append(jnp.nan_to_num(self.relics.predict()))   # quick fix: added jnp.nan_to_num to avoid NaNs in the output
        
         #Predict Energy  
-        predictions.append(jnp.nan_to_num(self.energy.predict(current_step=state.steps) ))        
+        predictions.append(jnp.nan_to_num(self.energy.predict(current_step=state.steps) ))    
+
+
+        # ship energy
+        predictions.append(state.player_sparse_energy_map)      
+        #predictions.append(state.opponent_sparse_energy_map)  
         
         #Add the scalar parameters, encoded into a 24x24 grid        
         # predictions.append(

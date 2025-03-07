@@ -12,6 +12,9 @@ class Config():
         #Change defaults here if needded and just call WriteDefaults()
 
         return {
+<<<<<<< HEAD
+            "Director" : {
+=======
             "Trainer" : {
                 "logepisodes"       : True,                                             #Should we log episodes?                
                 "episodelogdir"     : "/home/jorgen/MoJo/hierarchical/data/episodes/",  #Directory for logging episodes
@@ -23,10 +26,46 @@ class Config():
                 "TimeSteps_K"       : 8,            #Director picks new goals every K time steps. Using same value as paper
                 "TimeSteps_E"       : 16,           #Update  for PPO. Using same value as paper
 
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
                 "Worldmodel" : {
                     "datapath"      : "/home/jorgen/MoJo/hierarchical/data/worldmodel/",
                     "modelfile"     : "/home/jorgen/MoJo/hierarchical/weights/worldmodel.pth",
                     "input_dim"     : 25*24*24,
+<<<<<<< HEAD
+                    "hid1_dim"      : 512,
+                    "hid2_dim"      : 256,
+                    "latent_dim"    : 16,
+                    "lr"            : 1e-3
+                },
+                
+                "Manager" : {
+                    "eps_clip"      : 0.2,      # clip parameter for PPO
+                    "gamma"         : 0.99,     # discount factor
+                    "lr_actor"      : 0.00003,  # learning rate for actor network
+                    "lr_critic"     : 0.0001,   # learning rate for critic network
+                    "state_dim"     : 25*24*24,
+                    "action_dim"    : 6, 
+                    "K_epochs"      : 4,         
+                    "action_std"    : 0.5,      # Initial action std
+                    "has_continuous_action_space" : False
+                },
+
+                "Worker" : {
+                    "eps_clip"      : 0.2,      # clip parameter for PPO
+                    "gamma"         : 0.99,     # discount factor
+                    "lr_actor"      : 0.00003,  # learning rate for actor network
+                    "lr_critic"     : 0.0001,   # learning rate for critic network
+                    "state_dim"     : 25*24*24,
+                    "action_dim"    : 6, 
+                    "K_epochs"      : 4,         
+                    "action_std"    : 0.5,      # Initial action std
+                    "has_continuous_action_space" : False
+                }       
+            },
+            "MortensStuffHere": {
+                "A" : "This is A",
+                "B" : "This is B"
+=======
                     "hid1_dim"      : 4096,
                     "hid2_dim"      : 2048,
                     "latent_dim"    : 1024,
@@ -71,6 +110,7 @@ class Config():
                     "behaviors"     : 16            #Number of behaviors workers. Should match max num ships
                     
                 }       
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
             }
     }
 

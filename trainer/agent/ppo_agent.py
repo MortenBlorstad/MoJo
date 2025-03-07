@@ -8,9 +8,21 @@ import jax.numpy as jnp
 def getMapRange(position, zaprange, probmap):
     position = position.astype(int)
     x_lower = max(0,position[0]-zaprange)         #Avoid x pos < 0
+<<<<<<< HEAD
     x_upper = min(23,position[0]+zaprange+1)    #Avoid x pos > map height
     y_lower = max(0,position[1]-zaprange)         #Avoid y pos < 0
     y_upper = min(23,position[1]+zaprange+1)    #Avoid y pos > map width
+=======
+<<<<<<< HEAD
+    x_upper = min(24,position[0]+zaprange+1)    #Avoid x pos > map height
+    y_lower = max(0,position[1]-zaprange)         #Avoid y pos < 0
+    y_upper = min(24,position[1]+zaprange+1)    #Avoid y pos > map width
+=======
+    x_upper = min(23,position[0]+zaprange+1)    #Avoid x pos > map height
+    y_lower = max(0,position[1]-zaprange)         #Avoid y pos < 0
+    y_upper = min(23,position[1]+zaprange+1)    #Avoid y pos > map width
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
 
     #Filter out the probabilities of ships within zap-range
     return probmap[x_lower:x_upper,y_lower:y_upper], x_lower,y_lower
@@ -23,8 +35,17 @@ def getZapCoords(position, zaprange, probmap):
     #Add back global indexing
     x+=x_l 
     y+=y_l
+<<<<<<< HEAD
     x = min(x,23)
     y = min(y,23)	
+=======
+<<<<<<< HEAD
+
+=======
+    x = min(x,23)
+    y = min(y,23)	
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
     #Return target coordinates
     return (x,y),probmap[(x,y)]
 
@@ -77,7 +98,14 @@ class PPOAgent:
         state = self.universe.predict(obs)
         one_hot_pos = np.zeros((1, 16, 24*24))
         coordinates = np.zeros((16, 2))
+<<<<<<< HEAD
         
+=======
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
         for worker_idx in range(16):
             available, one_hot, pos  = self.universe.get_one_hot_pos(worker_idx)
             one_hot_pos[0,worker_idx] = one_hot
