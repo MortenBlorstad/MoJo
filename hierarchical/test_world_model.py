@@ -26,7 +26,7 @@ from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 from world.universe import Universe
 from world_model.world_model import WorldModel
 
-num_games = 1
+num_games = 100
 world_model = WorldModel(config)
 model_path = Path(sys.argv[0]).parent / "world_model" / "world_model.pt"
 if model_path.exists():
@@ -36,7 +36,7 @@ env = LuxAIS3GymEnv(numpy_output=True)
 player = "player_0"
 for game in range(num_games):
     
-    obs, info = env.reset()
+    obs, info = env.reset(seed=game)
     universe = Universe(player, info['params'], horizont=3)
     agents = [
         Agent(player=player, env_cfg = info['params']),
@@ -44,12 +44,12 @@ for game in range(num_games):
     ]
     done = False
 
-    
-
+    game_step = 0
     while not done:
+        game_step +=1
         step = obs[player]["match_steps"]
         state = universe.predict(obs[player])
-        print("Game =", game, " step =", step)
+        print("Game =", game, " step =", step, " game step =", game_step)
         
         actions = {}
         for i, agent in enumerate(agents):
@@ -57,7 +57,7 @@ for game in range(num_games):
             actions[agent.player] = action   
              
         obs, reward, terminated, truncated, info = env.step(actions)
-        done = step == 505   
+        done = game_step  >= 505   
         reward = universe.reward
      
 
