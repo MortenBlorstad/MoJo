@@ -170,9 +170,6 @@ class WorldModel(nn.Module):
         self.dynamics = RSSM(config,self.device).to(self.device )     # Recurrent Model h_t = f(h_{t-1}, z_{t-1}, a_{t-1}) 
         #self.decoder = Decoder(config,self.encoder.cnn_outshape) # Observation Model o_t = p(o_t | h_t, z_t)
         
-        print("============================================================================================")
-        print("Device set to : " + str(torch.cuda.get_device_name(self.device)))
-        print("============================================================================================")
 
         self.MBR = MBR(
             encoder=self.encoder,
@@ -283,7 +280,7 @@ class WorldModel(nn.Module):
         state_dict = torch.load(file_path, map_location=self.device)
         self.load_state_dict(state_dict)
         self.to(self.device)
-        print(f"Model's state_dict loaded from {file_path}")
+        #print(f"Model's state_dict loaded from {file_path}")
 
 
     def update_SimSR(self, mask_post_feat, true_post_feat, mask_prior_feat, true_prior_feat, data):
@@ -311,8 +308,8 @@ class WorldModel(nn.Module):
         pred_a = l2_norm(mask_prior_feat[:, 1:])
         pred_b = l2_norm(true_prior_feat[:, 1:])
         reward = data["reward"][:, :-1]
-        if not reward.min() >= 0 and reward.max() <= 2:
-            print(f"Reward range out of [0, 2], min reward = {reward.min()}, max reward = {reward.max()}")
+        # if not reward.min() >= 0 and reward.max() <= 2:
+        #     print(f"Reward range out of [0, 2], min reward = {reward.min()}, max reward = {reward.max()}")
         
         z_a, pred_a, reward = z_a.reshape(-1, z_a.shape[-1]), pred_a.reshape(-1, pred_a.shape[-1]), reward.reshape(-1, 1)
         z_b, pred_b = z_b.reshape(-1, z_b.shape[-1]), pred_b.reshape(-1, pred_b.shape[-1])
@@ -492,7 +489,7 @@ class WorldModel(nn.Module):
             sequence_length = 1
             latent, action = state
             x = {key: torch.tensor(x[key],dtype=torch.float32).view(1, 1, *x[key].shape[1:]).to(self.device) for key in x}
-            action = torch.tensor(action).view(batch_size, sequence_length, -1)
+            action = torch.tensor(action).clone().detach().view(batch_size, sequence_length, -1)
             action = self.one_hot_flatten_actions(action, self._config["num_actions"]).squeeze(1).to(self.device)
           
             is_first = torch.tensor(is_first,dtype=torch.int8).view(batch_size,-1).to(self.device)

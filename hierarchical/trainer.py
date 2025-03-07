@@ -26,28 +26,30 @@ if cfg['logepisodes']:
     env = RecordEpisode(env, save_dir=cfg['episodelogdir'])
 
 num_games = 3
-
+game_step = 0
 for game in range(num_games):
-
-    print("Starting game",game+1)
     
-    obs, info = env.reset()
+    seed = np.random.randint(0,10000)
+    print("Starting game", game + 1, "with seed", seed)
+
+    obs, info = env.reset(seed=seed)
 
     agents = [
-        Director(player="player_0", env_cfg = info['params'],training=True),
+        Director(player="player_0", env_cfg = info['params'], training=True),
         Agent(player="player_1", env_cfg = info['params'])
     ]
     done = False
 
     while not done:
+        game_step +=1
         step = obs["player_0"]["match_steps"]
-        
+        print("Game =", game, " step =", step, " game step =", game_step)
         actions = {}
         for i, agent in enumerate(agents):           
             action = agent.act(step, obs[f"player_{i}"])
             actions[agent.player] = action        
         obs, reward, _, _, _ = env.step(actions)
-        done = step == 100
+        done = game_step == 505
 
     if game > 0 and game % cfg['modelSaveFrequency'] == 0:
         agents[0].save()

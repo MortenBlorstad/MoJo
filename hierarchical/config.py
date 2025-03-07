@@ -21,7 +21,7 @@ class Config():
             },
 
             "Director" : {
-                "usewandb"          : False,                                            #Use WANDB?
+                "usewandb"          : True,                                            #Use WANDB?
                 "TimeSteps_K"       : 8,                                                #Director picks new goals every K time steps. Using same value as paper
                 "TimeSteps_E"       : 16,                                               #Update  for PPO. Using same value as paper
 

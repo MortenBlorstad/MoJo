@@ -65,7 +65,7 @@ class Director():
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         #Get x_(t:t+h) | o_t from universe. (Director paper uses x for the observation)
         x = self.u.predict(obs)
-
+        print("Director Step", step)
         
         # Get the current state of the game (state: (latent, action))
         is_first = step <= 1
@@ -124,6 +124,7 @@ class Director():
         
         #Update goal model
         l = self.goalmodel.backwardFromList(self.wmstates)        
+        self.ww.record("goalloss",l)    
 
         del self.universes[:]
         del self.wmstates[:]        
@@ -145,6 +146,7 @@ class Director():
 
         def reset(self):
             self.activelast = False
+            
             self.goal = None
 
         def missionComplete(self):
@@ -236,7 +238,6 @@ class Director():
 
                 if step == 100:
                     self.missionComplete()
-                    self.reset()
             else:
                 self.parent.worker.bufferList[self.shipIndex].clear()
 
@@ -285,6 +286,8 @@ class Director():
                 
                 #Update active state
                 self.activelast = active
-
+                if step == 100:
+                    self.reset()
+                print("self.shipIndex rewards", self.parent.worker.bufferList[self.shipIndex].rewards)
                 #Return action picked by ship
                 return action
