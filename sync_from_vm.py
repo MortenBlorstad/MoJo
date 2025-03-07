@@ -8,8 +8,8 @@ VM_USER = "ubuntu"
 SSH_KEY = "~/VM/lux.pem" 
 
 # Local & Remote Paths
-LOCAL_EPISODE_PATH = "~/VM/episodes"  # Replace with your local episode destination
-LOCAL_WEIGHTS_PATH = "~/VM/weights"  # Replace with your local weights destination
+LOCAL_EPISODE_PATH = "/MoJo/hierarchical/data/episodes"  # Replace with your local episode destination
+LOCAL_WEIGHTS_PATH = "../VM/weights"  # Replace with your local weights destination
 REMOTE_EPISODE_PATH = "~/Lux-Design-S3/MoJo/hierarchical/data/episodes"  # No trailing "/"
 REMOTE_WEIGHTS_PATH = "~/Lux-Design-S3/MoJo/hierarchical/weights"  # No trailing "/"
 
