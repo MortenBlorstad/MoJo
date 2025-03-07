@@ -16,7 +16,7 @@ class Config():
         return {
             "Trainer" : {
                 "logepisodes"       : True,                                             #Should we log episodes?                
-                "episodelogdir"     : str(self.parent_path / "data/episodes/"),         #Directory for logging episodes
+                "episodelogdir": str(Path.home() / self.parent_path.relative_to(Path.cwd()) / "data/episodes/"),  # Use Path.home()
                 "modelSaveFrequency": 10,                                               #Save all models every modelSaveFrequency games
             },
 
