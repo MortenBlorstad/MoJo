@@ -109,7 +109,7 @@ class Director():
         if self.training:
             self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step == 101)
             if (step > 0 and step % self.updateFreq == 0):                
-                self.update()
+                self.update(step)
 
             #Send data to WANDB
             self.ww.report()
