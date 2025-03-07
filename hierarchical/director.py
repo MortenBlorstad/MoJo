@@ -9,6 +9,7 @@ from hierarchical.config import Config
 from hierarchical.utils import getZapCoordsOnly, InitWorker, InitManager
 from hierarchical.vae import VAE
 from hierarchical.directorlossfuncs import MaxCosineNP as MaxCosine, ExplorationReward
+from world_model.world_model import WorldModel
 
 class Director():    
    
@@ -31,7 +32,8 @@ class Director():
             self.ww.wmloss = 0       #Add worldmodel loss property
             self.ww.goalloss = 0     #Add goalmodel loss property
             self.ww.mgrloss = []     #Add manager loss list (use average)
-            self.ww.wrkloss = []     #Add worker loss list (use average)            
+            self.ww.wrkloss = []     #Add worker loss list (use average)     
+           
             #------------------------------------------------------------------        
                 
         #Create a list of 'ShipActions' to keep track of when to update individual policies (per ship (16))  
@@ -41,7 +43,9 @@ class Director():
         self.universes = []
 
         #Load pretrained world model autoencoder
-        self.worldmodel = VAE.Load(self.cfg["Worldmodel"])
+        self.worldmodel = WorldModel(self.cfg["Worldmodel"])
+        self.worldmodel.load_model(self.cfg["Worldmodel"]["modelfile"])
+        #self.worldmodel = VAE.Load(self.cfg["Worldmodel"])
 
         #Keep track of the output from world model so we can train goal autoencoder
         self.wmstates = []
@@ -65,38 +69,43 @@ class Director():
 
         #Get x_(t:t+h) | o_t from universe. (Director paper uses x for the observation)
         x = self.u.predict(obs)
-        if self.training:
-            self.universes.append(x)
+        
+        # get state
+        s = self.worldmodel.predict(x)
 
-        #Encode state with world model
-        self.s = np.squeeze(self.worldmodel.npencode(x["image"].reshape(1,25*24*24)))        
+    
+             
         
         #Keep track of states for training (still torch.tensor @ device)
         if self.training:
-            self.wmstates.append(self.s)
+            self.wmstates.append(s)
 
         #We need state as numpy array
-        self.s = np.nan_to_num(self.s.detach().cpu().numpy())       
+        self.s = s.detach().cpu().squeeze().numpy()   
 
         #Get action per ship
-        action = [self.policies[idx].act(p[1],p[0],e,step) for idx,(p,e) in enumerate(zip(unitpos,unitene))]
+        action = np.array([self.policies[idx].act(p[1],p[0],e,step) for idx,(p,e) in enumerate(zip(unitpos,unitene))])
 
         #Check to see if we should update world model & goal model
-        if self.training:            
+        if self.training:
+            self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step ==100)
             if (step > 0 and step % self.updateFreq == 0):                
                 self.update()
 
             #Send data to WANDB
             self.ww.report()
+            
 
         #Concat into np array and return actions for env
-        return np.array(action)
+        return action
     
     def update(self):
 
         #Update world model here
         #...
-        self.ww.record("wmloss",3)
+        
+        world_model_matrics = self.worldmodel.train()
+        #self.ww.record("wmloss",world_model_matrics)
 
         #Update goal model
         l = self.goalmodel.backwardFromList(self.wmstates)
@@ -110,6 +119,7 @@ class Director():
         self.goalmodel.saveDescriptive(self.cfg["Goalmodel"]["modelfile"],"Goalmodel")
         self.manager.saveDescriptive(self.cfg["Manager"]["modelfile"],"Manager")
         self.worker.saveDescriptive(self.cfg["Worker"]["modelfile"],"Worker")
+
     
     class ShipActions():
     

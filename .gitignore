@@ -5,6 +5,11 @@ __pycache__/
 *.dll
 *.dylib
 *.pyd
+*.pyc
+
+# ignore model weights
+hierarchical/weights/*
+!hierarchical/weights/.gitkeep
 
 # Virtual environments
 venv/

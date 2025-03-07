@@ -1,23 +1,22 @@
 import yaml
 import json
-
+import sys
+import os
+from pathlib import Path
 class Config():
     def __init__(self):
-        self.global_yaml_file = "/home/jorgen/MoJo/hierarchical/config.yml"
-    
-
+        self.parent_path = Path(sys.argv[0]).parent.resolve()
+        self.global_yaml_file = str(self.parent_path  / "config.yml")  #"/home/jorgen/MoJo/hierarchical/config.yml"
+        
     def __Defaults(self):
 
         #Write the MoJo default configuration to file.
         #Change defaults here if needded and just call WriteDefaults()
 
         return {
-<<<<<<< HEAD
-            "Director" : {
-=======
             "Trainer" : {
                 "logepisodes"       : True,                                             #Should we log episodes?                
-                "episodelogdir"     : "/home/jorgen/MoJo/hierarchical/data/episodes/",  #Directory for logging episodes
+                "episodelogdir"     : str(self.parent_path / "data/episodes/"),  #Directory for logging episodes
                 "modelSaveFrequency": 10,                                               #Save all models every modelSaveFrequency games
             },
 
@@ -26,55 +25,61 @@ class Config():
                 "TimeSteps_K"       : 8,            #Director picks new goals every K time steps. Using same value as paper
                 "TimeSteps_E"       : 16,           #Update  for PPO. Using same value as paper
 
->>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
                 "Worldmodel" : {
-                    "datapath"      : "/home/jorgen/MoJo/hierarchical/data/worldmodel/",
-                    "modelfile"     : "/home/jorgen/MoJo/hierarchical/weights/worldmodel.pth",
-                    "input_dim"     : 25*24*24,
-<<<<<<< HEAD
-                    "hid1_dim"      : 512,
-                    "hid2_dim"      : 256,
-                    "latent_dim"    : 16,
-                    "lr"            : 1e-3
-                },
-                
-                "Manager" : {
-                    "eps_clip"      : 0.2,      # clip parameter for PPO
-                    "gamma"         : 0.99,     # discount factor
-                    "lr_actor"      : 0.00003,  # learning rate for actor network
-                    "lr_critic"     : 0.0001,   # learning rate for critic network
-                    "state_dim"     : 25*24*24,
-                    "action_dim"    : 6, 
-                    "K_epochs"      : 4,         
-                    "action_std"    : 0.5,      # Initial action std
-                    "has_continuous_action_space" : False
-                },
+                    #"datapath"      : "/home/jorgen/MoJo/hierarchical/data/worldmodel/",
+                    "modelfile"     : str(self.parent_path / "weights/worldmodel.pt"),
+                    "image_size": [41, 24, 24],
+                    "scalar_size": 6,
+                    "latent_dim": 1024, # Deterministic hidden state size
+                    "hidden_dim": 512, # Internal processing size
+                    "stoch": 32, #  Stochastic latent state size
+                    "num_actions": 6, # acton values 6  
+                    "num_units": 16, # Number of units to make actions
+                    "discrete_actions": 16, # Discrete actions
+                    "batch_size": 8, # Batch size
+                    "model_lr": 0.0001, # Learning rate
+                    "memory_capacity": 1000, # Replay buffer size
+                    "memory_sequence_length": 2, # sequence length in replay buffer
+                    "step_embedding_dim": 64, # Step embedding size
+                    "scalar_dim": 6, # Scalar size
+                    "shared": False,
+                    "temp_post" : True,
+                    "temp_post": True,
+                    "std_act": 'sigmoid2',
+                    "unimix_ratio": 0.01,
+                    "value_head": 'symlog_disc',
+                    "reward_head": 'symlog_disc',
+                    "reward_layers": 3,
+                    "units": 640,
+                    "cont_layers": 3,
+                    "value_layers": 3,
+                    "actor_layers": 3,
+                    "kl_free": 1.0,
+                    "cont_scale": 1.0,
+                    "dyn_scale": 0.5,
+                    "rep_scale": 0.1,
+                    "opt_eps": 1e-8,
+                    "grad_clip": 1000,
+                    "opt": 'adam',
+                    "reward_scale": 1.0,
+                    "weight_decay": 0.0,
+                    "tau" : 0.005,
+                    "precision": 32,
+                    "cont_stoch_size": 32,
+                    "grad_heads": ['reward', 'cont'],
+                    "initial": 'learned',
+                    "nomlr": False,
+                    "nosimsr": False,
 
-                "Worker" : {
-                    "eps_clip"      : 0.2,      # clip parameter for PPO
-                    "gamma"         : 0.99,     # discount factor
-                    "lr_actor"      : 0.00003,  # learning rate for actor network
-                    "lr_critic"     : 0.0001,   # learning rate for critic network
-                    "state_dim"     : 25*24*24,
-                    "action_dim"    : 6, 
-                    "K_epochs"      : 4,         
-                    "action_std"    : 0.5,      # Initial action std
-                    "has_continuous_action_space" : False
-                }       
-            },
-            "MortensStuffHere": {
-                "A" : "This is A",
-                "B" : "This is B"
-=======
-                    "hid1_dim"      : 4096,
-                    "hid2_dim"      : 2048,
-                    "latent_dim"    : 1024,
-                    "lr"            : 1e-3
+                    # MBR
+                    "mask_ratio" : 0.5,
+                    "patch_size": 10,
+                    "block_size": 4,
                 },
 
                 "Goalmodel" : {
-                    "datapath"      : "/home/jorgen/MoJo/hierarchical/data/goalmodel/",
-                    "modelfile"     : "/home/jorgen/MoJo/hierarchical/weights/goalmodel.pth",
+                    "datapath"      : str(self.parent_path / "data/goalmodel/"),
+                    "modelfile"     : str(self.parent_path / "weights/goalmodel.pth"),
                     "input_dim"     : 1024,         #State is output from world model
                     "hid1_dim"      : 256,          #Hidden 1
                     "hid2_dim"      : 128,          #Hidden 2
@@ -83,7 +88,7 @@ class Config():
                 },                
                 
                 "Manager" : {
-                    "modelfile"     : "/home/jorgen/MoJo/hierarchical/weights/manager.pth",
+                    "modelfile"     :str( self.parent_path / "weights/manager.pth"),
                     "eps_clip"      : 0.2,          #Clip parameter for PPO
                     "gamma"         : 0.99,         #Discount factor
                     "lr_actor"      : 0.00003,      #Learning rate for actor network
@@ -97,7 +102,7 @@ class Config():
                 },
 
                 "Worker" : {
-                    "modelfile"     : "/home/jorgen/MoJo/hierarchical/weights/worker.pth",
+                    "modelfile"     : str(self.parent_path / "weights/worker.pth"),
                     "eps_clip"      : 0.2,          #Clip parameter for PPO
                     "gamma"         : 0.99,         #Discount factor
                     "lr_actor"      : 0.00003,      #Learning rate for actor network
@@ -110,7 +115,6 @@ class Config():
                     "behaviors"     : 16            #Number of behaviors workers. Should match max num ships
                     
                 }       
->>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
             }
     }
 

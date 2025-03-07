@@ -267,6 +267,10 @@ class WorldModel(nn.Module):
         torch.save(self.state_dict(), file_path)
         print(f"Model's state_dict saved to {file_path}")
     
+    def saveDescriptive(self, path, name):        
+        self.save_model(path)
+        print("Saved",name,"to file",path)
+    
     
     def load_model(self, file_path):
         """
@@ -482,15 +486,32 @@ class WorldModel(nn.Module):
         true_post = {k: v.detach() for k, v in true_post.items()}
         return true_post, context, metrics
 
+    def predict(self, x):
+        with torch.no_grad():
+            s = torch.rand(1, 1024)
+        # post, prior = self.dynamics.observe(
+        #             embed, actions, is_first
+        #         )
 
-    def train(self,step, state, action, reward, is_first, done):
-        metrics = {}
+        #self.dynamics.get_feat(post)
+        return s
+
+    def add_to_memory(self,step, state, action, reward, is_first, done):
         if step == 0:
-            #print(step,state["image"][:, 12, :5, :5])
-            return metrics
+            self.memory.clear_sequence()
+            return
+        self.memory.push(state, action[:, 0], reward, is_first, done)    
+        return
+        
+
+    def train(self):
+        metrics = {}
+        # if step == 0:
+        #     #print(step,state["image"][:, 12, :5, :5])
+        #     return metrics
         # if is_first:
         #     #print(step, state["image"][:, 12, :5, :5])
-        self.memory.push(state, action[:, 0], reward, is_first, done)
+        #self.memory.push(state, action[:, 0], reward, is_first, done)
         if len(self.memory) >= self.batch_size:
             sequences = self.memory.sample(self.batch_size)
             batch, actions, rewards, is_first, done = self.convert_sequence_to_tensor(sequences)
@@ -512,8 +533,7 @@ class WorldModel(nn.Module):
             # print("recon", recon["image"].shape,
             #        recon["scalars"].shape, recon["step_embedding"].shape)
         
-        if step % 100 == 0:
-            self.memory.clear_sequence()
+        
             
         return metrics 
     

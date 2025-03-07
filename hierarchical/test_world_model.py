@@ -6,8 +6,7 @@ import yaml
 from pathlib import Path
 import wandb
 # Initialize wandb
-wandb.init(project="world_model",
-            name="world_model")
+wandb.init(project="world_model")
 
 
 config_path = Path(sys.argv[0]).parent / "world_model" / "config.yml"
@@ -15,7 +14,6 @@ config = yaml.safe_load(config_path.read_text())["world_model"]
 print(config)
 import torch
 
-from hierarchical.config import Config
 
 from base_agent import Agent
 from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode

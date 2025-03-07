@@ -92,33 +92,18 @@ class EquationSet():
     #a is a system of M equations with N unique symbols s_i with [s1,s2,...sN] ∈ [0,1]
     #b are the M right hand sides of the equations
     def eqSolve(self,a,b):
-<<<<<<< HEAD
+
         
         #Get possible bitstrings as jnp.array  
         mask = jnp.array([b for b in product([0, 1], repeat=a.shape[1])])
 
-=======
-<<<<<<< HEAD
 
-        #Get possible bitstrings as jnp.array  
-        mask = jnp.array([b for b in product([0, 1], repeat=a.shape[1])])
-
-=======
         
         #Get possible bitstrings as jnp.array  
         mask = jnp.array([b for b in product([0, 1], repeat=a.shape[1])])
 
->>>>>>> main
-        if a.dtype != jnp.int32:
-            print("a", a)
-        if b.dtype != jnp.int32:
-            print("b", b)
-        if not (mask.dtype == jnp.bool_ or mask.dtype == jnp.int32):
-            print("mask", mask)
-<<<<<<< HEAD
-=======
->>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
->>>>>>> main
+
+
         #Compute row-wise sum of 'a AND b' and compare to b matrix to check if bitstring is a valid solution to equations
         res = jnp.sum(a[jnp.newaxis,:]&mask[:,jnp.newaxis,:],axis=2) == b
 
@@ -136,28 +121,23 @@ class EquationSet():
             indices = relics.tojnp()
             relicmap = relicmap.at[(indices[:,0],indices[:,1])].add(1)
 
-<<<<<<< HEAD
+
     
-=======
-<<<<<<< HEAD
-=======
+
     
->>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
->>>>>>> main
+
+
         #If there are any equations to be solved
         if self.equations:                
 
             #Create forward/backward lookup dictionaries for pos <-> index
             self.makeLookupDicts()
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
+
             #Create the a and b matrices for the equation set
             a = jnp.array([self.row(lst) for lst,_ in self.equations])
             b = jnp.array([val for _,val in self.equations])
-=======
->>>>>>> main
+
             # Create the a and b matrices for the equation set
             a = jnp.array([self.row(lst) for lst, _ in self.equations], dtype=jnp.int32)
             b = jnp.array([val for _, val in self.equations], dtype=jnp.int32)
@@ -173,11 +153,6 @@ class EquationSet():
                     print("equations", self.equations)
                 return relicmap
             
-
-<<<<<<< HEAD
-=======
->>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
->>>>>>> main
 
             #Solve equations
             res = self.eqSolve(a,b)
