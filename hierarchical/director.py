@@ -211,7 +211,7 @@ class Director():
         def pickShipAction(self,x,y,e,step):
 
             #Update (extrinsic) cumulative reward
-            self.cumuativeExtrinsic += self.parent.u.thiscore
+            self.cumuativeExtrinsic += self.parent.u.reward[0,self.shipIndex] #self.parent.u.thiscore
                         
             #Decrement goal timer
             self.goalclock-=1
