@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 class Config():
     def __init__(self):
-        self.parent_path = Path(sys.argv[0]).parent.resolve()
-        self.global_yaml_file = str(self.parent_path  / "config.yml")  #"/home/jorgen/MoJo/hierarchical/config.yml"
+        self.parent_path = Path(__file__).parent.resolve()
+        self.global_yaml_file = str(self.parent_path  / "config.yml")  
         
     def __Defaults(self):
 
