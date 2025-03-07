@@ -36,7 +36,7 @@ env = LuxAIS3GymEnv(numpy_output=True)
 player = "player_0"
 for game in range(num_games):
     
-    obs, info = env.reset()
+    obs, info = env.reset(seed=game)
     universe = Universe(player, info['params'], horizont=3)
     agents = [
         Agent(player=player, env_cfg = info['params']),
