@@ -16,32 +16,31 @@ class Config():
         return {
             "Trainer" : {
                 "logepisodes"       : True,                                             #Should we log episodes?                
-                "episodelogdir"     : str(self.parent_path / "data/episodes/"),  #Directory for logging episodes
+                "episodelogdir"     : str(self.parent_path / "data/episodes/"),         #Directory for logging episodes
                 "modelSaveFrequency": 10,                                               #Save all models every modelSaveFrequency games
             },
 
             "Director" : {
-                "usewandb"          : False,        #Use WANDB?
-                "TimeSteps_K"       : 8,            #Director picks new goals every K time steps. Using same value as paper
-                "TimeSteps_E"       : 16,           #Update  for PPO. Using same value as paper
+                "usewandb"          : False,                                            #Use WANDB?
+                "TimeSteps_K"       : 8,                                                #Director picks new goals every K time steps. Using same value as paper
+                "TimeSteps_E"       : 16,                                               #Update  for PPO. Using same value as paper
 
-                "Worldmodel" : {
-                    #"datapath"      : "/home/jorgen/MoJo/hierarchical/data/worldmodel/",
+                "Worldmodel" : {                    
                     "modelfile"     : str(self.parent_path / "weights/worldmodel.pt"),
                     "image_size": [41, 24, 24],
                     "scalar_size": 6,
-                    "latent_dim": 1024, # Deterministic hidden state size
-                    "hidden_dim": 512, # Internal processing size
-                    "stoch": 32, #  Stochastic latent state size
-                    "num_actions": 6, # acton values 6  
-                    "num_units": 16, # Number of units to make actions
-                    "discrete_actions": 16, # Discrete actions
-                    "batch_size": 8, # Batch size
-                    "model_lr": 0.0001, # Learning rate
-                    "memory_capacity": 1000, # Replay buffer size
-                    "memory_sequence_length": 2, # sequence length in replay buffer
-                    "step_embedding_dim": 64, # Step embedding size
-                    "scalar_dim": 6, # Scalar size
+                    "latent_dim": 1024,                                                 # Deterministic hidden state size
+                    "hidden_dim": 512,                                                  # Internal processing size
+                    "stoch": 32,                                                        #  Stochastic latent state size
+                    "num_actions": 6,                                                   # acton values 6  
+                    "num_units": 16,                                                    # Number of units to make actions
+                    "discrete_actions": 16,                                             # Discrete actions
+                    "batch_size": 8,                                                    # Batch size
+                    "model_lr": 0.0001,                                                 # Learning rate
+                    "memory_capacity": 1000,                                            # Replay buffer size
+                    "memory_sequence_length": 2,                                        # sequence length in replay buffer
+                    "step_embedding_dim": 64,                                           # Step embedding size
+                    "scalar_dim": 6,                                                    # Scalar size
                     "shared": False,
                     "temp_post" : True,
                     "temp_post": True,

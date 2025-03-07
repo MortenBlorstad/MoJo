@@ -25,7 +25,7 @@ env = LuxAIS3GymEnv( numpy_output = True)
 if cfg['logepisodes']:
     env = RecordEpisode(env, save_dir=cfg['episodelogdir'])
 
-num_games = 1
+num_games = 3
 
 for game in range(num_games):
 
@@ -49,6 +49,6 @@ for game in range(num_games):
         obs, reward, _, _, _ = env.step(actions)
         done = step == 100
 
-    if game > 0 and game % cfg['modelSaveFrequency']:
+    if game > 0 and game % cfg['modelSaveFrequency'] == 0:
         agents[0].save()
 env.close()
