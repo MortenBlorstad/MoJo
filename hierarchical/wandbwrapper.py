@@ -19,7 +19,7 @@ class WandbWrapper():
                 #}
             )
             self._WW_run = wandb.init()
-
+            
 
     #Record loss value
     def record(self, propertyName, propertyValue):
@@ -61,19 +61,23 @@ class WandbWrapper():
 
             self.__clear()        
             self._WW_run.log(r)
+
             
 '''
 #Example
+
+import numpy as np
 
 ww = WandbWrapper(True)
 ww.wmloss = 0
 ww.goalloss = 0
 ww.mgrloss = []
 ww.wrkloss = []
-ww.mstuff = 0
+
+d = {'model_loss': np.array(23.500671, dtype=np.float32), 'model_grad_norm': 29.497570037841797, 'reward_loss': np.array(3.4556196, dtype=np.float32), 'cont_loss': np.array(2.7174645e-05, dtype=np.float32), 'mbr_loss': np.array(6.026751e-06, dtype=np.float32), 'simsr_loss': np.array(16.212582, dtype=np.float32), 'kl_free': 1.0, 'dyn_scale': 0.5, 'rep_scale': 0.1, 'dyn_loss': np.array(6.387396, dtype=np.float32), 'rep_loss': np.array(6.387396, dtype=np.float32), 'kl': np.array(6.336668, dtype=np.float32), 'min_reward': np.array(-244.39638, dtype=np.float32), 'max_reward': np.array(-203.41843, dtype=np.float32), 'prior_ent': np.array(68.44803, dtype=np.float32), 'post_ent': np.array(66.625626, dtype=np.float32)}
 
 
-for i in range(3):
+for i in range(100):
 
     ww.record("wrkloss",0)
     ww.record("wrkloss",24)
@@ -82,12 +86,8 @@ for i in range(3):
     ww.record("mgrloss",-2)
     ww.record("mgrloss",-3)
 
-
-    d = {
-        "val1" : i,
-        "val2" : i+5
-    }
-    ww.record("mstuff",d)
+    if i % 10 == 0:
+        ww.record("wmloss",d)
 
 
     ww.report()

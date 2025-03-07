@@ -72,9 +72,6 @@ class Director():
         
         # get state
         s = self.worldmodel.predict(x)
-
-    
-             
         
         #Keep track of states for training (still torch.tensor @ device)
         if self.training:
@@ -104,10 +101,9 @@ class Director():
         #Update world model here       
         world_model_matrics = self.worldmodel.train()
         self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
-
+        
         #Update goal model
-        l = self.goalmodel.backwardFromList(self.wmstates)
-        self.ww.record("goalloss",l)        
+        l = self.goalmodel.backwardFromList(self.wmstates)        
 
         del self.universes[:]
         del self.wmstates[:]        
@@ -147,7 +143,7 @@ class Director():
 
                 #Update mission control
                 l = self.parent.manager.update(self.shipIndex)
-                self.parent.ww.record("mgrloss",l)
+                self.parent.ww.record("mgrloss",l)                
 
             else:
                 self.parent.manager.bufferList[self.shipIndex].clear()
