@@ -233,4 +233,26 @@ def prmap(arr, header = None):
                 print(''.join(mapvals(arr[i])))
                 if(i != (shp[0]-1)):
                     print(''.join(mapline(shp[1])))            
+<<<<<<< HEAD
             print(''.join(mapstartstop(shp[1],False))) 
+=======
+            print(''.join(mapstartstop(shp[1],False))) 
+
+
+
+def get_symmetric_coordinates(indices:np.array, nrows = 24, ncols = 24):
+    """
+    Given coordinates (i, j), returns the symmetric coordinates (j, i)
+    along the main diagonal of a square grid.
+    
+    Args:
+        indices (np.ndarray): A tuple or array of row and column indices.
+        nrows (int): Number of rows in the grid.
+        ncols (int): Number of columns in the grid.
+    
+    Returns:
+        np.ndarray: Array with swapped and transformed (j, i) coordinates.
+    """
+    i, j = indices
+    return ncols-j-1, nrows-i-1  # Swap i and j
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7

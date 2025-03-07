@@ -54,7 +54,11 @@ def compute_conv_output_size(input_size, kernel_size, stride, padding=0, dilatio
     return ((input_size + 2 * padding - dilation * (kernel_size - 1) - 1) // stride) + 1
 
 class Actor(nn.Module):
+<<<<<<< HEAD
     def __init__(self, feature_dim, one_hot_pos_dim, scaler_dim, step_embedding_dim, action_dim, has_continuous_action_space):
+=======
+    def __init__(self, feature_dim, one_hot_pos_dim, one_hot_unit_id_dim, scaler_dim, step_embedding_dim, action_dim, has_continuous_action_space):
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
         super(Actor, self).__init__()
         self.action_dim = action_dim
         self.has_continuous_action_space = has_continuous_action_space
@@ -71,32 +75,58 @@ class Actor(nn.Module):
                         )
         else:
             self.fc1 = nn.Sequential(
+<<<<<<< HEAD
                             nn.Linear(feature_dim + one_hot_pos_dim, 64),
                             nn.Tanh(),
                             nn.Linear(64, 64),
                             nn.Tanh(),
+=======
+                            nn.Linear(feature_dim + one_hot_pos_dim + 2*one_hot_unit_id_dim, 128),
+                            nn.SiLU(),
+                            nn.Linear(128, 128),
+                            nn.SiLU(),
+                            nn.Linear(128, 128),
+                            nn.SiLU(),
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
                         )
             self.time_layer = nn.Sequential(
                             nn.Linear(step_embedding_dim, step_embedding_dim),
                             nn.SiLU()
                         )
             self.scaler_layer = nn.Sequential(
+<<<<<<< HEAD
                             nn.Linear(scaler_dim, 16),
+=======
+                            nn.Linear(scaler_dim, 32),
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
                             nn.SiLU()
                         )
             
             self.head = nn.Sequential(
+<<<<<<< HEAD
                             nn.Linear(64 + step_embedding_dim + 16, 128),
+=======
+                            nn.Linear(128 + step_embedding_dim + 32, 128),
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
                             nn.Tanh(),
                             nn.Linear(128, action_dim),
                             nn.Softmax(dim=-1)
                             )
             
+<<<<<<< HEAD
     def forward(self, x, one_hot_pos, scalars, step_embedding):
         batch_size = x.size(0)
         actions = []
         for i in range(16):
             state = torch.cat((x, one_hot_pos[:, i]), dim=1)
+=======
+    def forward(self, x, one_hot_pos, one_hot_unit_id,one_hot_unit_energy, scalars, step_embedding):
+        batch_size = x.size(0)
+        actions = []
+        for i in range(16):
+            state = torch.cat((x, one_hot_pos[:, i], one_hot_unit_id[:, i], one_hot_unit_energy[:, i]), dim=1)
+           
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
             z = self.fc1(state)
             time = self.time_layer(step_embedding)
             scaler = self.scaler_layer(scalars)
@@ -108,6 +138,7 @@ class Actor(nn.Module):
         return actions
     
 class Critic(nn.Module):
+<<<<<<< HEAD
     def __init__(self, feature_dim, one_hot_pos_dim, scaler_dim, step_embedding_dim):
         super(Critic, self).__init__()
         self.num_units = 16
@@ -116,27 +147,55 @@ class Critic(nn.Module):
                             nn.Tanh(),
                             nn.Linear(64, 64),
                             nn.Tanh(),
+=======
+    def __init__(self, feature_dim, one_hot_pos_dim, one_hot_unit_id_dim, scaler_dim, step_embedding_dim):
+        super(Critic, self).__init__()
+        self.num_units = 16
+        self.fc1 = nn.Sequential(
+                            nn.Linear(feature_dim + one_hot_pos_dim + 2*one_hot_unit_id_dim, 128),
+                            nn.SiLU(),
+                            nn.Linear(128, 128),
+                            nn.SiLU(),
+                            nn.Linear(128, 128),
+                            nn.SiLU(),
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
                         )
         self.time_layer = nn.Sequential(
                         nn.Linear(step_embedding_dim, step_embedding_dim),
                         nn.SiLU()
                     )
         self.scaler_layer = nn.Sequential(
+<<<<<<< HEAD
                         nn.Linear(scaler_dim, 16),
+=======
+                        nn.Linear(scaler_dim, 32),
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
                         nn.SiLU()
                     )
         
         self.head = nn.Sequential(
+<<<<<<< HEAD
                         nn.Linear(64 + step_embedding_dim + 16, 128, 128),
+=======
+                        nn.Linear(128 + step_embedding_dim + 32, 128, 128),
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
                         nn.Tanh(),
                         nn.Linear(128, 1),
                         )
 
+<<<<<<< HEAD
     def forward(self, x, one_hot_pos, scalars, step_embedding):
         batch_size = x.size(0)
         values = []
         for i in range(16):
             state = torch.cat((x, one_hot_pos[:, i]), dim=1)
+=======
+    def forward(self, x, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding):
+        batch_size = x.size(0)
+        values = []
+        for i in range(16):
+            state = torch.cat((x, one_hot_pos[:, i], one_hot_unit_id[:, i], one_hot_unit_energy[:,i]), dim=1)
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
             z = self.fc1(state)
             time = self.time_layer(step_embedding)
             scaler = self.scaler_layer(scalars)
@@ -156,7 +215,12 @@ class ActorCritic(nn.Module):
         self.has_continuous_action_space = has_continuous_action_space
         self.image_size = image_size # (channel, height, width)
         one_hot_pos_dim = 24*24
+<<<<<<< HEAD
         scaler_dim = 4
+=======
+        one_hot_unit_id_dim = 16
+        scaler_dim = 6
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
         step_embedding_dim = 64
         if has_continuous_action_space:
             self.action_dim = action_dim
@@ -192,9 +256,15 @@ class ActorCritic(nn.Module):
             feature_dim = state_dim  # MLP directly takes state_dim as input
         
         # actor
+<<<<<<< HEAD
         self.actor = Actor(feature_dim, one_hot_pos_dim,scaler_dim, step_embedding_dim, action_dim, has_continuous_action_space)
         # critic
         self.critic = Critic(feature_dim, one_hot_pos_dim,scaler_dim, step_embedding_dim)
+=======
+        self.actor = Actor(feature_dim, one_hot_pos_dim, one_hot_unit_id_dim ,scaler_dim, step_embedding_dim, action_dim, has_continuous_action_space)
+        # critic
+        self.critic = Critic(feature_dim, one_hot_pos_dim, one_hot_unit_id_dim ,scaler_dim, step_embedding_dim)
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
         
         
     def set_action_std(self, new_action_std):
@@ -212,33 +282,65 @@ class ActorCritic(nn.Module):
 
         return self.actor(state, one_hot_pos), self.critic(state, one_hot_pos)
     
+<<<<<<< HEAD
     def act(self, image, one_hot_pos, scalars, step_embedding):
+=======
+    def act(self, image, one_hot_pos, one_hot_unit_id,one_hot_unit_energy, scalars, step_embedding):
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
         if self.image_size is not None:
             #state = state / 255.0  # Normalize image
             state = self.feature_extractor(image)
 
         
         if self.has_continuous_action_space:
+<<<<<<< HEAD
             action_mean = self.actor(state, one_hot_pos, scalars, step_embedding)
             cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
             dist = MultivariateNormal(action_mean, cov_mat)
         else:
             action_probs = self.actor(state, one_hot_pos, scalars, step_embedding)
+=======
+            action_mean = self.actor(state, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding)
+            cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
+            dist = MultivariateNormal(action_mean, cov_mat)
+        else:
+            action_probs = self.actor(state, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding)
+            if torch.isnan(action_probs).any():  # fix: check if action_probs has any NaNs
+                print("action_probs contains NaNs")  # enhanced debug message for NaNs
+                print("state", torch.where(torch.isnan(state)))
+                print("one_hot_pos", torch.where(torch.isnan(one_hot_pos)))
+                print("one_hot_unit_id", torch.where(torch.isnan(one_hot_unit_id)))
+                print("scalars", torch.where(torch.isnan(scalars)))
+                print("step_embedding", torch.where(torch.isnan(step_embedding)))
+             
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
             dist = Categorical(action_probs)
 
         action = dist.sample()
         action_logprob = dist.log_prob(action)
+<<<<<<< HEAD
         state_val = self.critic(state, one_hot_pos, scalars, step_embedding)
 
         return action.detach(), action_logprob.detach(), state_val.detach()
     
     def evaluate(self, image, one_hot_pos, scalars, step_embedding, action):
+=======
+        state_val = self.critic(state, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding)
+
+        return action.detach(), action_logprob.detach(), state_val.detach()
+    
+    def evaluate(self, image, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding, action):
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
        
         if self.image_size is not None:
             #state = state / 255.0  # Normalize
             image = self.feature_extractor(image)
         if self.has_continuous_action_space:
+<<<<<<< HEAD
             action_mean = self.actor(image, one_hot_pos, scalars, step_embedding)
+=======
+            action_mean = self.actor(image, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding)
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
             
             action_var = self.action_var.expand_as(action_mean)
             cov_mat = torch.diag_embed(action_var).to(device)
@@ -249,12 +351,20 @@ class ActorCritic(nn.Module):
                 action = action.reshape(-1, self.action_dim)
         else:
          
+<<<<<<< HEAD
             action_probs = self.actor(image, one_hot_pos, scalars, step_embedding)
+=======
+            action_probs = self.actor(image, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding)
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
      
             dist = Categorical(action_probs)
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
+<<<<<<< HEAD
         state_values = self.critic(image, one_hot_pos, scalars, step_embedding)
+=======
+        state_values = self.critic(image, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding)
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
         
         return action_logprobs, state_values, dist_entropy
 
@@ -320,13 +430,28 @@ class PPO:
         step_embedding = state["step_embedding"]
         scalars = state["scalars"]
         image = state["image"]
+<<<<<<< HEAD
+=======
+    
+        one_hot_unit_id = state["one_hot_unit_id"]
+        one_hot_unit_energy = state["one_hot_unit_energy"]  
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
         if self.has_continuous_action_space:
             with torch.no_grad():
                 image = torch.FloatTensor(image).to(device)
                 scalars = torch.FloatTensor(scalars).to(device)
                 step_embedding = torch.FloatTensor(step_embedding).to(device)
+<<<<<<< HEAD
                 one_hot_pos = torch.FloatTensor(one_hot_pos).to(device)
                 action, action_logprob, state_val = self.policy_old.act(image, one_hot_pos, scalars, step_embedding)
+=======
+               
+                one_hot_pos = torch.FloatTensor(one_hot_pos).to(device)
+                one_hot_unit_id = torch.FloatTensor(one_hot_unit_id).to(device)
+                one_hot_unit_energy =  torch.FloatTensor(one_hot_unit_energy).to(device)
+
+                action, action_logprob, state_val = self.policy_old.act(image, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding)
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
             if self.training:
                 self.buffer.states.append(state)
                 self.buffer.one_hot_pos.append(one_hot_pos)
@@ -341,7 +466,13 @@ class PPO:
                 scalars = torch.FloatTensor(scalars).to(device)
                 step_embedding = torch.FloatTensor(step_embedding).to(device)
                 one_hot_pos = torch.FloatTensor(one_hot_pos).to(device)
+<<<<<<< HEAD
                 action, action_logprob, state_val = self.policy_old.act(image, one_hot_pos, scalars, step_embedding)
+=======
+                one_hot_unit_id = torch.FloatTensor(one_hot_unit_id).to(device)
+                one_hot_unit_energy = torch.FloatTensor(one_hot_unit_energy).to(device)
+                action, action_logprob, state_val = self.policy_old.act(image, one_hot_pos, one_hot_unit_id, one_hot_unit_energy, scalars, step_embedding)
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
             if self.training:
                 self.buffer.states.append(state)
                 self.buffer.one_hot_pos.append(one_hot_pos)
@@ -406,6 +537,13 @@ class PPO:
         old_images = torch.squeeze(torch.stack([torch.FloatTensor(state["image"]) for state in self.buffer.states], dim=0),dim=1).detach().to(device)
         old_scalers = torch.squeeze(torch.stack([torch.FloatTensor(state["scalars"]) for state in self.buffer.states], dim=0),dim=1).detach().to(device)
         old_time_embeddings = torch.squeeze(torch.stack([torch.FloatTensor(state["step_embedding"]) for state in self.buffer.states], dim=0),dim=1).detach().to(device)
+<<<<<<< HEAD
+=======
+        old_one_hot_unit_id = torch.squeeze(torch.stack([torch.FloatTensor(state["one_hot_unit_id"]) for state in self.buffer.states], dim=0),dim=1).detach().to(device)
+        old_one_hot_unit_energy = torch.squeeze(torch.stack([torch.FloatTensor(state["one_hot_unit_energy"]) for state in self.buffer.states], dim=0),dim=1).detach().to(device)
+
+
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
         old_one_hot_pos = torch.squeeze(torch.stack(self.buffer.one_hot_pos, dim=0),dim=1).detach().to(device)
         old_actions = torch.squeeze(torch.stack(self.buffer.actions, dim=0)).detach().to(device)
         old_logprobs = torch.squeeze(torch.stack(self.buffer.logprobs, dim=0)).detach().to(device)
@@ -418,7 +556,11 @@ class PPO:
         for _ in range(self.K_epochs):
 
             # Evaluating old actions and values
+<<<<<<< HEAD
             logprobs, state_values, dist_entropy = self.policy.evaluate(old_images, old_one_hot_pos, old_scalers, old_time_embeddings, old_actions)
+=======
+            logprobs, state_values, dist_entropy = self.policy.evaluate(old_images, old_one_hot_pos,old_one_hot_unit_id, old_one_hot_unit_energy, old_scalers, old_time_embeddings, old_actions)
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
 
             # match state_values tensor dimensions with rewards tensor
             state_values = torch.squeeze(state_values)
