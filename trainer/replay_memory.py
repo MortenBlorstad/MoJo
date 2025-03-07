@@ -1,6 +1,14 @@
 import numpy as np
 import random
+<<<<<<< HEAD
 from collections import namedtuple,deque
+=======
+<<<<<<< HEAD
+from collections import namedtuple
+=======
+from collections import namedtuple,deque
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
 
 # Define a named tuple for storing transitions
 Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done'))
@@ -43,6 +51,11 @@ class ReplayMemory:
 
     def __len__(self):
         return len(self.memory)
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> main
     
 
 class SequenceReplayMemory:
@@ -90,3 +103,7 @@ class SequenceReplayMemory:
 
     def __len__(self):
         return len(self.memory)
+<<<<<<< HEAD
+=======
+>>>>>>> 7515b2ceab11c37e9fed4d289e351ddc4a00fcd7
+>>>>>>> main
