@@ -101,11 +101,9 @@ class Director():
     
     def update(self):
 
-        #Update world model here
-        #...
-        
+        #Update world model here       
         world_model_matrics = self.worldmodel.train()
-        #self.ww.record("wmloss",world_model_matrics)
+        self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
 
         #Update goal model
         l = self.goalmodel.backwardFromList(self.wmstates)
