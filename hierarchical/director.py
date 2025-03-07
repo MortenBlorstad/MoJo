@@ -51,7 +51,7 @@ class Director():
         #Keep track of the output from world model so we can train goal autoencoder
         self.wmstates = []
 
-        #Load pretrained goal autoencoder
+        #Load pretrained goal autoencoderf
         self.goalmodel = VAE.Load(self.cfg["Goalmodel"])
         self.goalstates = []
 
@@ -65,7 +65,7 @@ class Director():
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         #Get x_(t:t+h) | o_t from universe. (Director paper uses x for the observation)
         x = self.u.predict(obs)
-        print("Director Step", step)
+        #print("Director Step", step)
         
         # Get the current state of the game (state: (latent, action))
         is_first = step <= 1
@@ -80,8 +80,12 @@ class Director():
 
         
         #Get positions & energy
+        
         unitpos =  np.array(obs["units"]["position"][self.u.team_id]) 
         unitene = np.array(obs["units"]["energy"][self.u.team_id])
+        # if step <=1 or step >= 100:
+        #     print(unitpos)
+        #     print(unitene)
 
         
         
@@ -103,7 +107,7 @@ class Director():
 
         #Check to see if we should update world model & goal model
         if self.training:
-            self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step ==100)
+            self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step == 101)
             if (step > 0 and step % self.updateFreq == 0):                
                 self.update()
 
@@ -116,11 +120,12 @@ class Director():
 
         return action
     
-    def update(self):
+    def update(self, step):
 
-        #Update world model here       
-        world_model_matrics = self.worldmodel.train()
-        self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
+        #Update world model here 
+        if step > 0 and step % 16 == 0:  
+            world_model_matrics = self.worldmodel.train()
+            self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
         
         #Update goal model
         l = self.goalmodel.backwardFromList(self.wmstates)        
@@ -170,6 +175,7 @@ class Director():
             else:
                 self.parent.manager.bufferList[self.shipIndex].clear()
 
+        
         def setGoal(self):
 
             #Let manager pick a goal for this ship
@@ -228,7 +234,7 @@ class Director():
             if self.parent.training:              
 
                 #Check if it is update o'clock: timeout or last step in match
-                if (l > 0 and l % self.parent.updateFreq == 0) or (step == 100 and l > 0):
+                if (l > 0 and l % self.parent.updateFreq == 0) or (step == 101 and l > 0):
 
                     #<Insert Worker dreaming here>
 
@@ -236,7 +242,7 @@ class Director():
                     l = self.parent.worker.update(self.shipIndex)
                     self.parent.ww.record("wrkloss",l)        
 
-                if step == 100:
+                if step == 101:
                     self.missionComplete()
             else:
                 self.parent.worker.bufferList[self.shipIndex].clear()
@@ -251,13 +257,16 @@ class Director():
 
             return (action, zapX, zapY)            
 
-        def act(self,x,y,e,step):
-                
-                #Is ship in play this time step?
-                active = x != -1 and y != -1                    
 
+        def is_valid_step(self,step):
+            return (step - 1) % 3 == 0 and 1 <= step <= 1 + 3 * 15  # Ensure within range
+        
+        def act(self, x, y, e, step):
+                #Is ship in play this time step?              
+                active = x != -1 and y != -1 and e > 0 and self.is_valid_step(step)               
+                
                 #If ship was removed from map... 
-                if self.activelast and not active:
+                if (self.activelast and not active) or step == 101:
 
                     #...we end the mission
                     self.missionComplete()
@@ -285,9 +294,9 @@ class Director():
                     action = (0,0,0)       
                 
                 #Update active state
+                #print("id", self.shipIndex,"step", step,  self.activelast, active, e > 0,  x != -1 and y != -1, len(self.parent.worker.bufferList[self.shipIndex].rewards))
                 self.activelast = active
-                if step == 100:
-                    self.reset()
-                print("self.shipIndex rewards", self.parent.worker.bufferList[self.shipIndex].rewards)
+                
+                
                 #Return action picked by ship
                 return action

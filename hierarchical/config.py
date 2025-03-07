@@ -35,7 +35,7 @@ class Config():
                     "num_actions": 6,                                                   # acton values 6  
                     "num_units": 16,                                                    # Number of units to make actions
                     "discrete_actions": 16,                                             # Discrete actions
-                    "batch_size": 8,                                                    # Batch size
+                    "batch_size": 32,                                                    # Batch size
                     "model_lr": 0.0001,                                                 # Learning rate
                     "memory_capacity": 1000,                                            # Replay buffer size
                     "memory_sequence_length": 2,                                        # sequence length in replay buffer
