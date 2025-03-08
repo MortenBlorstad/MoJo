@@ -256,15 +256,15 @@ class Universe():
 
         n_units = self.unit_mask.sum()
         n_units_inplay = self.units_inplay.sum()
-        unit_score = (n_units - n_units_inplay) / (n_units + 1)
-        unexplored_ratio = unexplored_count/(24*24) 
+        # unit_score = (n_units - n_units_inplay) / (n_units + 1)
+        # unexplored_ratio = unexplored_count/(24*24) 
         num_in_points_zone = in_points_zone.sum()
         point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
 
         relic_found = ~np.any(state.relic_nodes == 1)
 
         
-        factor = 0.2*(505/(steps**1.333+505))
+        factor = 0.2*(100/(match_steps**1.333+505))
 
         distance_reward = (distance_from_center + close_to_start) * factor # distance_from_arch*factor 
         
@@ -273,7 +273,7 @@ class Universe():
 
         stacking_in_pointzone_penalty = np.zeros(16)
         stacking_in_pointzone_penalty = calculate_stacking_penalty(in_points_zone, state.player_units_count, state.p0ShipPos_unfiltered, stacking_in_pointzone_penalty)
-        reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - unit_score*0.001 - unexplored_ratio * 0.1 - distance_reward - relic_found * 0.3, axis=0) + stacking_in_pointzone_penalty
+        reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 
         return reward
 
     def get_one_hot_pos(self, idx:int)->np.ndarray:
