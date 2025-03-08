@@ -361,13 +361,14 @@ class Universe():
 
         unobserved_fraction =  ((1-self.observed_map.ravel()).sum() / (24*24))
         scaling_factor = 5 # scaling_factor = 5
-        tiles_unobserved_penalty = np.exp(-scaling_factor * (1 - unobserved_fraction)) 
+        tiles_unobserved_penalty = -np.exp(-scaling_factor * (1 - unobserved_fraction)) 
         # % Observed	% Unobserved	Reward (Scaling = 5)
         #     0%	        100%	        1.0000
         #     25%	        75%	            0.7788
         #     50%	        50%	            0.3679
         #     75%	        25%	            0.0821
         #     100%	        0%	            0.0067
+        #print("relic_not_found", tiles_unobserved_penalty*(match_steps<50 or relic_not_found) )
         reward = np.expand_dims(0.5*points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50)+ tiles_unobserved_penalty*(match_steps<50 or relic_not_found) + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
         
