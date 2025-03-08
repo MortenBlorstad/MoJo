@@ -18,7 +18,7 @@ class Director():
 
         #Get variables
         self.player = player
-        self.u = Universe(player, env_cfg, horizont=3)        
+        self.u = Universe(player, env_cfg, horizont=1)        
         self.cfg = Config().Get("Director")   
         self.clockTicks = self.cfg["TimeSteps_K"]
         self.updateFreq = self.cfg["TimeSteps_E"]
@@ -45,8 +45,9 @@ class Director():
 
         #Load pretrained world model autoencoder
         self.worldmodel = WorldModel(self.cfg["Worldmodel"])
-        self.worldmodel.load_model(self.cfg["Worldmodel"]["modelfile"])
-        #self.worldmodel = VAE.Load(self.cfg["Worldmodel"])
+        if os.path.exists(self.cfg["Worldmodel"]["modelfile"]):
+            self.worldmodel.load_model(self.cfg["Worldmodel"]["modelfile"])
+        
 
         #Keep track of the output from world model so we can train goal autoencoder
         self.wmstates = []
@@ -56,17 +57,16 @@ class Director():
         self.goalstates = []
 
         #Load the Muli Agent PPO with double critic - continous action space
-        self.manager = InitManager(self.cfg["Manager"])
+        self.manager = InitManager(self.cfg["Manager"],False)
 
         #Load the Muli Agent PPO with single critic - discrete action space
-        self.worker = InitWorker(self.cfg["Worker"])        
+        self.worker = InitWorker(self.cfg["Worker"],False)        
 
     #This function is called for all steps and should compute the ship actions
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         #Get x_(t:t+h) | o_t from universe. (Director paper uses x for the observation)
         x = self.u.predict(obs)
         #print("Director Step", step)
-        
         # Get the current state of the game (state: (latent, action))
         is_first = step <= 1
         if is_first:
@@ -213,7 +213,7 @@ class Director():
         def pickShipAction(self,x,y,e,step):
 
             #Update (extrinsic) cumulative reward
-            self.cumuativeExtrinsic += (self.parent.u.thiscore/(step+1))-1 #self.parent.u.reward[0,self.shipIndex] #self.parent.u.thiscore
+            self.cumuativeExtrinsic += self.parent.u.reward[0,self.shipIndex] #self.parent.u.thiscore # (self.parent.u.thiscore/(step+1))-1 
                         
             #Decrement goal timer
             self.goalclock-=1

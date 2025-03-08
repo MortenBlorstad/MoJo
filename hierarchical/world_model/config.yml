@@ -1,11 +1,11 @@
 world_model:
 
 # World model configuration
-  "image_size": [41, 24, 24]
+  "image_size": [14, 24, 24]
   "scalar_size": 6
-  "latent_dim": 1024 # Deterministic hidden state size
-  "hidden_dim": 512 # Internal processing size
-  "stoch": 32 #  Stochastic latent state size
+  "latent_dim": 512 # Deterministic hidden state size
+  "hidden_dim": 256 # Internal processing size
+  "stoch": 16 #  Stochastic latent state size
   "num_actions": 6 # acton values 6  
   "num_units": 16 # Number of units to make actions
   "discrete_actions": 16 # Discrete actions
@@ -23,8 +23,8 @@ world_model:
   "value_head": 'symlog_disc'
   "reward_head": 'symlog_disc'
   "reward_layers": 3
-  "units": 640
-  "cont_layers": 3
+  "units": 128
+  "cont_layers": 2
   "value_layers": 3
   "actor_layers": 3
   "kl_free": 1.0

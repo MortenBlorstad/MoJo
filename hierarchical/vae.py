@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.nn import functional as F
-
+import os
 
 class VAE(nn.Module):
 
@@ -134,7 +134,8 @@ class VAE(nn.Module):
     def Load(cfg, EVAL = False):  
 
         model = VAE.Create(cfg)
-        model.load_state_dict(torch.load(cfg['modelfile'], weights_only=True))
+        if os.path.exists(cfg['modelfile']):
+            model.load_state_dict(torch.load(cfg['modelfile'], weights_only=True))
         if EVAL:
             model.eval()
         return model

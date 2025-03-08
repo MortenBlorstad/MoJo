@@ -14,6 +14,87 @@ from world.scalarencoder import NaiveScalarEncoder
 from world.obs_to_state import State
 
 
+def single_relic_heatmap(relic_position, shape):
+    """
+    Generates a heatmap for a single relic where:
+    - 1.0 for the relic itself
+    - 0.9 for adjacent cells
+    - 0.8 for cells surrounding the 0.9 layer
+    - 0.7 for next layer
+    - 0.6 for next layer
+    - 0.5 for next layer
+
+    Overlapping influence is not handled here. This function processes one relic at a time.
+
+    Args:
+    relic_position (tuple): The (x, y) position of the relic.
+    shape (tuple): The shape of the heatmap (H, W).
+
+    Returns:
+    np.array: A (H, W) heatmap with influence from a single relic.
+    """
+    H, W = shape
+    heatmap = np.zeros((H, W), dtype=np.float32)
+
+    x, y = relic_position
+    heatmap[x, y] = 1.0  # Set the relic position
+
+    # Define influence layers
+    influence_layers = [(0.9, 1), (0.8, 2), (0.7, 3), (0.6, 4), (0.5, 5)]  # (Value, distance)
+
+    expanded_area = np.copy(heatmap)
+
+    # Expand influence outward ensuring boundaries are respected
+    for value, distance in influence_layers:
+        temp_area = np.copy(expanded_area)
+
+        for _ in range(distance):
+            temp_area_shifted = np.copy(temp_area)
+
+            if H > 1:
+                temp_area_shifted[1:, :] = np.maximum(temp_area_shifted[1:, :], temp_area[:-1, :])  # Down
+                temp_area_shifted[:-1, :] = np.maximum(temp_area_shifted[:-1, :], temp_area[1:, :]) # Up
+            if W > 1:
+                temp_area_shifted[:, 1:] = np.maximum(temp_area_shifted[:, 1:], temp_area[:, :-1])  # Right
+                temp_area_shifted[:, :-1] = np.maximum(temp_area_shifted[:, :-1], temp_area[:, 1:]) # Left
+
+            temp_area = temp_area_shifted 
+
+        heatmap += temp_area  # Add influence layer
+    
+    return heatmap / heatmap.max() if heatmap.max() > 0 else heatmap
+
+# Re-defining and executing the aggregation function
+
+def aggregate_relic_heatmaps(relic_grid):
+    """
+    Generates an aggregated heatmap by summing the influence of multiple relics.
+    
+    Args:
+    relic_grid (np.array): A (24,24) array with 1s where relics are placed and 0s elsewhere.
+
+    Returns:
+    np.array: A (24,24) aggregated heatmap.
+    """
+    H, W = relic_grid.shape
+    aggregated_heatmap = np.zeros((H, W), dtype=np.float32)
+
+    # Get relic positions
+    relic_positions = np.argwhere(relic_grid == 1)
+
+    # Sum up heatmaps for each relic
+    for pos in relic_positions:
+        relic_heatmap = single_relic_heatmap(tuple(pos), (H, W))
+        aggregated_heatmap += relic_heatmap  # Sum overlapping influence
+
+    # Avoid zero values appearing in visualization
+    aggregated_heatmap = np.clip(aggregated_heatmap, 0, 1.0)
+
+    return aggregated_heatmap
+
+
+
+
 def generate_arch_positions(start_pos=(0, 0), radius=18, num_positions=16):
     """
     Generates evenly spread positions in an arch from 0° to 90° relative to a given start position.
@@ -163,7 +244,7 @@ def compute_distances_from_map_center(unit_positions, grid_size=(24, 24)):
 
 class Universe():
 
-    def __init__(self, player:str, configuration:dict, horizont:int = 3, seed:int = None):
+    def __init__(self, player:str, configuration:dict, horizont:int = 1, seed:int = None):
       
         #The initial observation has this structure
         #-------------------------------------------------------------------------------------------
@@ -224,6 +305,10 @@ class Universe():
         self.relics = Relics()
         self.energy = Energy(self.horizont)
         self.scalar = NaiveScalarEncoder(env_params_ranges)
+        
+        self.relic_heatmap = np.zeros((24,24))
+        self.observed_map = np.zeros((24,24))
+
 
 
         self.arc_positions = generate_arch_positions(start_pos=(0, 0), radius=18, num_positions=16)
@@ -274,10 +359,20 @@ class Universe():
         stacking_in_pointzone_penalty = np.zeros(16)
         stacking_in_pointzone_penalty = calculate_stacking_penalty(in_points_zone, state.player_units_count, state.p0ShipPos_unfiltered, stacking_in_pointzone_penalty)
 
-
-        #reward = np.expand_dims(0.5*points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*(self.thiscore-1), axis=0)
+        unobserved_fraction =  ((1-self.observed_map.ravel()).sum() / (24*24))
+        scaling_factor = 5 # scaling_factor = 5
+        tiles_unobserved_penalty = np.exp(-scaling_factor * (1 - unobserved_fraction)) 
+        # % Observed	% Unobserved	Reward (Scaling = 5)
+        #     0%	        100%	        1.0000
+        #     25%	        75%	            0.7788
+        #     50%	        50%	            0.3679
+        #     75%	        25%	            0.0821
+        #     100%	        0%	            0.0067
+        reward = np.expand_dims(0.5*points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50)+ tiles_unobserved_penalty*(match_steps<50) + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
-        reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 
+        
+        #reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 
+        
         return reward
     
 
@@ -313,6 +408,7 @@ class Universe():
             self.thiscore = 0       #Score current step    
             self.opponent_totalscore = 0     #Overall score
             self.opponent_thiscore = 0       #Score current step   
+            self.observed_map = np.zeros((24,24))
 
        
         self.units_inplay = state.player_units_inplay
@@ -325,7 +421,7 @@ class Universe():
             self.energy.learn(current_step=state.steps, observation=state.energy, pos1=state.player_units_count, pos2=state.opponent_units_count, observable=state.observeable_tiles)
         
 
-
+        
         self.p0pos.learn(state.p0ShipPos)        
         self.p1pos.learn(state.p1ShipPos)        
         
@@ -336,7 +432,10 @@ class Universe():
 
         self.totalscore += self.thiscore
         self.opponent_totalscore += self.opponent_thiscore
-        
+
+
+        self.relic_heatmap = aggregate_relic_heatmaps(state.relic_nodes)
+        self.observed_map = np.where(state.observeable_tiles == 1, 1, 0) 
         
         
         #Learn relic tiles        
@@ -350,8 +449,8 @@ class Universe():
         nebulas, astroids = self.nebula_astroid.predict(state.nebulas,state.asteroids, state.observeable_tiles, current_step=state.steps)
 
         #OBS: get unobserved_terrain before calling nan_to_num on nebulas & astr0oids. (nan == unobserved_terrain)        
-        unobserved_terrain = get_unobserved_terrain(nebulas,astroids)
-        unexplored_count = unobserved_terrain[0].sum().item() # number of unexplored tiles
+        unobserved_terrain = np.expand_dims(get_unobserved_terrain(nebulas,astroids)[0],axis=0) # dont need to horizon here.
+        unexplored_count = unobserved_terrain.sum().item() # number of unexplored tiles
               
         self.reward  = self.get_reward(state, unexplored_count)     
 
@@ -366,7 +465,7 @@ class Universe():
            
         predictions.append(p0pos)        
         predictions.append(p1pos)
-        
+ 
 
         #Predict Relic tiles        
         predictions.append(jnp.nan_to_num(self.relics.predict()))   # quick fix: added jnp.nan_to_num to avoid NaNs in the output
@@ -374,9 +473,15 @@ class Universe():
         #Predict Energy  
         predictions.append(jnp.nan_to_num(self.energy.predict(current_step=state.steps) ))    
 
+        # relic heatmap
+      
+        predictions.append(np.expand_dims(self.relic_heatmap, axis=0))
+        # observed map
+        predictions.append(np.expand_dims(self.observed_map, axis=0))
 
         # ship energy
-        predictions.append(state.player_sparse_energy_map)      
+        #predictions.append(state.player_sparse_energy_map)      
+        
         #predictions.append(state.opponent_sparse_energy_map)  
         
         #Add the scalar parameters, encoded into a 24x24 grid        
@@ -396,7 +501,7 @@ class Universe():
 
         stacked_array = np.concatenate(predictions, axis=0)  
         stacked_array = np.expand_dims(stacked_array, axis=0)  # Expand to batch shape
-        
+       
 
         sum_score = max(self.teampoints+self.opponent_teampoints,1)
         scalers = np.expand_dims(self.scaler_features, axis=0) # Expand to batch shape
@@ -409,7 +514,6 @@ class Universe():
         
         one_hot_unit_energy = np.diag(state.unit_energies) / 100 # init_unit_energy: int = 100, max_unit_energy: int = 400
         one_hot_unit_energy = np.expand_dims(one_hot_unit_energy, axis=0)
-
         state = {"image": stacked_array, "step_embedding": step_embedding, "scalars": scalers, "one_hot_unit_id": one_hot_unit_id, "one_hot_unit_energy": one_hot_unit_energy} 
         return state  
 

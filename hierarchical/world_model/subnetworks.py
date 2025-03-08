@@ -183,8 +183,8 @@ class Encoder(nn.Module):
         step_embedding_dim = config['step_embedding_dim']
         scalar_dim = config['scalar_dim']
         depth = 96
-        mlp_units = 1024
-        mlp_layers = 3
+        mlp_units = 64
+        mlp_layers = 2
         self.layers = []
         for i in range(int(np.log2(24) - np.log2(4))):
             if i == 0:
@@ -203,7 +203,7 @@ class Encoder(nn.Module):
         self.conv = nn.Sequential(*self.layers) 
         self.cnn_outdim = out_dim * h * w
         self.cnn_outshape = (self.cnn_outdim//h**2, h, w)
-      
+        print("cnn_outdim", self.cnn_outdim)
 
         self.layers =   [
                             nn.Linear(scalar_dim + step_embedding_dim, mlp_units),
@@ -219,10 +219,10 @@ class Encoder(nn.Module):
 
  
         self.fc_embedding = nn.Sequential(
-            nn.Linear(mlp_units + self.cnn_outdim, 4096),
-            nn.LayerNorm(4096),
+            nn.Linear(mlp_units + self.cnn_outdim, 1024),
+            nn.LayerNorm(1024),
             nn.SiLU(),
-            nn.Linear(4096, config['latent_dim']),
+            nn.Linear(1024, config['latent_dim']),
             nn.LayerNorm(config['latent_dim']),
             nn.SiLU()
         )
