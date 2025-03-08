@@ -26,7 +26,7 @@ class Config():
                 "TimeSteps_E"       : 16,                                               #Update  for PPO. Using same value as paper
 
                 "Worldmodel" : {                    
-                    "modelfile"     : str(self.parent_path / "weights/worldmodel.pt"),
+                    "modelfile"     : "MoJo/hierarchical/weights/worldmodel.pt",
                     "image_size": [41, 24, 24],
                     "scalar_size": 6,
                     "latent_dim": 1024,                                                 # Deterministic hidden state size
