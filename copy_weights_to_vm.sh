@@ -4,13 +4,13 @@
 # ./copy_weights_to_vm.sh Run the Script
 
 # VM Details
-VM_IP="158.39.201.97"  # Replace with your VM's actual IP
+VM_IP="158.37.65.122"  # Replace with your VM's actual IP
 VM_USER="ubuntu"
-SSH_KEY="$HOME/VM/lux.pem"  # Ensure this SSH key is in your current directory or provide the full path
+SSH_KEY="$HOME/VM/mobl.pem"  # Ensure this SSH key is in your current directory or provide the full path
 
 # Source (WSL Path) and Destination (VM Path)
 WSL_PATH="$HOME/Lux-Design-S3/MoJo/hierarchical/weights/"
-VM_PATH="~/Lux-Design-S3/MoJo/hierarchical/weights/"
+VM_PATH="/home/$VM_USER/Lux-Design-S3/MoJo/hierarchical/weights/"
 
 
 echo "🔍 Testing SSH connection to VM..."

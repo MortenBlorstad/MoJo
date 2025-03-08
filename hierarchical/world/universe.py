@@ -346,7 +346,7 @@ class Universe():
         num_in_points_zone = in_points_zone.sum()
         point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
 
-        relic_found = ~np.any(state.relic_nodes == 1)
+        relic_not_found = ~np.any(state.relic_nodes == 1)
 
         
         factor = 0.2*(100/(match_steps**1.333+505))
@@ -368,7 +368,7 @@ class Universe():
         #     50%	        50%	            0.3679
         #     75%	        25%	            0.0821
         #     100%	        0%	            0.0067
-        reward = np.expand_dims(0.5*points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50)+ tiles_unobserved_penalty*(match_steps<50) + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
+        reward = np.expand_dims(0.5*points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50)+ tiles_unobserved_penalty*(match_steps<50 or relic_not_found) + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
         
         #reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 

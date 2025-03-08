@@ -3,9 +3,9 @@ import subprocess
 import argparse
 
 # VM Connection Details
-VM_IP = "158.39.201.97"  # Replace with your actual VM IP
+VM_IP = "158.37.65.122"  # Replace with your actual VM IP
 VM_USER = "ubuntu"
-SSH_KEY = "~/VM/lux.pem" 
+SSH_KEY = "~/VM/mobl.pem" 
 
 # Local & Remote Paths
 LOCAL_EPISODE_PATH = "MoJo/hierarchical/data/episodes"  # Replace with your local episode destination
