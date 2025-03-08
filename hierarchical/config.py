@@ -17,7 +17,7 @@ class Config():
             "Trainer" : {
                 "logepisodes"       : True,                                             #Should we log episodes?                
                 "episodelogdir": "MoJo/hierarchical/data/episodes/",  # Use Path.home()
-                "modelSaveFrequency": 10,                                               #Save all models every modelSaveFrequency games
+                "modelSaveFrequency": 3,                                               #Save all models every modelSaveFrequency games
             },
 
             "Director" : {
@@ -36,9 +36,9 @@ class Config():
                     "num_units": 16,                                                    # Number of units to make actions
                     "discrete_actions": 16,                                             # Discrete actions
                     "batch_size": 32,                                                    # Batch size
-                    "model_lr": 0.0001,                                                 # Learning rate
+                    "model_lr": float(0.00001),                                                 # Learning rate
                     "memory_capacity": 1000,                                            # Replay buffer size
-                    "memory_sequence_length": 2,                                        # sequence length in replay buffer
+                    "memory_sequence_length": 4,                                        # sequence length in replay buffer
                     "step_embedding_dim": 64,                                           # Step embedding size
                     "scalar_dim": 6,                                                    # Scalar size
                     "shared": False,
@@ -83,7 +83,7 @@ class Config():
                     "hid1_dim"      : 256,          #Hidden 1
                     "hid2_dim"      : 128,          #Hidden 2
                     "latent_dim"    : 8,            #Goalmodel latent space is 8 in the paper
-                    "lr"            : 1e-3          #Learning rate for Goal VAE
+                    "lr"            : 0.00001          #Learning rate for Goal VAE
                 },                
                 
                 "Manager" : {

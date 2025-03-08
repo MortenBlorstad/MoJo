@@ -98,6 +98,7 @@ class Director():
         #Keep track of states for training (still torch.tensor @ device)
         if self.training:
             self.wmstates.append(s)
+            
 
         #We need state as numpy array
         self.s = s.detach().cpu().squeeze().numpy()   
@@ -107,23 +108,24 @@ class Director():
 
         #Check to see if we should update world model & goal model
         if self.training:
-            self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step == 101)
+            self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step == 100)
             if (step > 0 and step % self.updateFreq == 0):                
                 self.update(step)
 
             #Send data to WANDB
             self.ww.report()
             
+            
+            
 
         #Concat into np array and return actions for env
         self.state = (latent, action[:,0])
-
         return action
     
     def update(self, step):
 
         #Update world model here 
-        if step > 0 and step % 16 == 0:  
+        if step > 0 and step % 64 == 0:  
             world_model_matrics = self.worldmodel.train()
             self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
         
@@ -211,7 +213,7 @@ class Director():
         def pickShipAction(self,x,y,e,step):
 
             #Update (extrinsic) cumulative reward
-            self.cumuativeExtrinsic += self.parent.u.reward[0,self.shipIndex] #self.parent.u.thiscore
+            self.cumuativeExtrinsic += (self.parent.u.thiscore/(step+1))-1 #self.parent.u.reward[0,self.shipIndex] #self.parent.u.thiscore
                         
             #Decrement goal timer
             self.goalclock-=1

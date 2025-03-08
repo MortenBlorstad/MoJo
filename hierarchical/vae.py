@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.optim import Adam
+from torch.nn import functional as F
 
 
 class VAE(nn.Module):
@@ -64,6 +65,15 @@ class VAE(nn.Module):
         x_hat = self.decode(z)  
         return x_hat, mean, log_var    
 
+    def norm_goal_loss(self, f_x1s, f_x2s, mean, log_var, reduction="mean"):
+        f_x1 = F.normalize(
+            f_x1s.float(), p=2.0, dim=-1, eps=1e-3
+        )  # (bs*(1+jumps), 512)
+        f_x2 = F.normalize(f_x2s.float(), p=2.0, dim=-1, eps=1e-3)
+        loss = F.mse_loss(f_x1, f_x2, reduction="none").sum(-1)
+        loss = loss.mean(0) if reduction == "mean" else loss
+        kld_loss = - 0.5 * torch.sum(1+ log_var - mean.pow(2) - log_var.exp())
+        return loss + kld_loss
 
     def goal_loss(self, x, x_hat, mean, log_var):
         
@@ -85,7 +95,7 @@ class VAE(nn.Module):
         self.optimizer.zero_grad()
 
         x_hat, mean, log_var = self(x)        
-        loss = self.goal_loss(x, x_hat, mean, log_var)
+        loss = self.norm_goal_loss(x, x_hat, mean, log_var)
         
         rval = loss.item()
         
@@ -117,7 +127,7 @@ class VAE(nn.Module):
             cfg['hid1_dim'],
             cfg['hid2_dim'],
             cfg['latent_dim'],
-            cfg['lr']        
+            float(cfg['lr'])       
         ).to(device)
 
     @staticmethod

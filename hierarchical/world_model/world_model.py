@@ -238,7 +238,7 @@ class WorldModel(nn.Module):
         self._model_opt = utils.Optimizer(
             "model",
             self.parameters(),
-            config["model_lr"],
+            float(config["model_lr"]),
             float(config["opt_eps"]),  
             config["grad_clip"],  
             config["weight_decay"],  
