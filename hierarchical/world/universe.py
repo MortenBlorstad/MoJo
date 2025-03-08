@@ -93,7 +93,27 @@ def aggregate_relic_heatmaps(relic_grid):
     return aggregated_heatmap
 
 
+def penalty_for_proximity(positions, grid_size=23):
+    """
+    Computes a penalty for an array of positions, penalizing proximity to (0,0).
+    Normalized between 0 and 1, rewarding movement in any direction equally.
 
+    Args:
+        positions (np.array): Array of shape (N, 2) with (x, y) coordinates.
+        grid_size (int): Defines the farthest possible distance.
+
+    Returns:
+        np.array: Array of shape (N,) with penalty values between 0 and 1.
+    """
+    max_distance = grid_size  # Max possible movement in any one direction
+    
+    # Compute max deviation from (0,0) for each position
+    current_distances = np.max(np.abs(positions), axis=1)
+    
+    # Normalize penalty values
+    penalties = current_distances / max_distance
+    
+    return 1-penalties
 
 def generate_arch_positions(start_pos=(0, 0), radius=18, num_positions=16):
     """
@@ -325,13 +345,14 @@ class Universe():
         match_steps = state.match_steps
         steps = state.steps
 
-        close_to_start = (np.sqrt(23**2 +23**2) - np.linalg.norm(state.p0ShipPos_unfiltered, axis=1)) / np.sqrt(23**2 +23**2) # (16x1)
+        #close_to_start = (np.sqrt(23**2 +23**2) - np.linalg.norm(state.p0ShipPos_unfiltered, axis=1)) / np.sqrt(23**2 +23**2) # (16x1)
+        close_to_start = penalty_for_proximity(state.p0ShipPos_unfiltered, grid_size=23)
         
         in_points_zone = is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius= 4)
 
-        distance_from_center = compute_distances_from_map_center(state.p0ShipPos_unfiltered)
+        #distance_from_center = compute_distances_from_map_center(state.p0ShipPos_unfiltered)
 
-        distance_from_arch = compute_distances_to_arch(state.p0ShipPos_unfiltered, self.arc_positions)
+        #distance_from_arch = compute_distances_to_arch(state.p0ShipPos_unfiltered, self.arc_positions)
 
         a, b = self.teampoints, self.opponent_teampoints
         points_ratio = (a - b) / (a + b + 1)
@@ -351,10 +372,10 @@ class Universe():
         
         factor = 0.2*(100/(match_steps**1.333+505))
 
-        distance_reward = (distance_from_center + close_to_start) * factor # distance_from_arch*factor 
-        
+        #distance_reward = (distance_from_center + close_to_start) * factor # distance_from_arch*factor 
+        distance_reward = -close_to_start
 
-        distance_reward += distance_from_arch * factor
+        #distance_reward += distance_from_arch * factor
 
         stacking_in_pointzone_penalty = np.zeros(16)
         stacking_in_pointzone_penalty = calculate_stacking_penalty(in_points_zone, state.player_units_count, state.p0ShipPos_unfiltered, stacking_in_pointzone_penalty)
@@ -369,7 +390,8 @@ class Universe():
         #     75%	        25%	            0.0821
         #     100%	        0%	            0.0067
         #print("relic_not_found", tiles_unobserved_penalty*(match_steps<50 or relic_not_found) )
-        reward = np.expand_dims(0.5*points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50)+ tiles_unobserved_penalty*(match_steps<50 or relic_not_found) + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
+        explore_reward = (distance_reward+tiles_unobserved_penalty)*(match_steps<50 or relic_not_found) 
+        reward = np.expand_dims(0.5*points_ratio + 0.2*this_points_ratio*(match_steps>50)+  explore_reward + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
         
         #reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 
