@@ -4,7 +4,7 @@
 # ./copy_weights_to_vm.sh Run the Script
 
 # VM Details
-VM_IP="158.39.201.251"  # Replace with your VM's actual IP
+VM_IP="158.39.201.97"  # Replace with your VM's actual IP
 VM_USER="ubuntu"
 SSH_KEY="$HOME/VM/lux.pem"  # Ensure this SSH key is in your current directory or provide the full path
 

@@ -3,7 +3,7 @@ import subprocess
 import argparse
 
 # VM Connection Details
-VM_IP = "158.39.201.251"  # Replace with your actual VM IP
+VM_IP = "158.39.201.97"  # Replace with your actual VM IP
 VM_USER = "ubuntu"
 SSH_KEY = "~/VM/lux.pem" 
 

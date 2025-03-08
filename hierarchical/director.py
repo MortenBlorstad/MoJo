@@ -57,10 +57,10 @@ class Director():
         self.goalstates = []
 
         #Load the Muli Agent PPO with double critic - continous action space
-        self.manager = InitManager(self.cfg["Manager"],False)
+        self.manager = InitManager(self.cfg["Manager"])
 
         #Load the Muli Agent PPO with single critic - discrete action space
-        self.worker = InitWorker(self.cfg["Worker"],False)        
+        self.worker = InitWorker(self.cfg["Worker"])        
 
     #This function is called for all steps and should compute the ship actions
     def act(self, step: int, obs, remainingOverageTime: int = 60):
