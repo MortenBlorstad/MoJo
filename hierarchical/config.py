@@ -26,7 +26,7 @@ class Config():
                 "TimeSteps_E"       : 16,                                               #Update  for PPO. Using same value as paper
 
                 "Worldmodel" : {                    
-                    "modelfile"     : str(self.parent_path / "weights/worldmodel.pt"),
+                    "modelfile"     : "MoJo/hierarchical/weights/worldmodel.pt",
                     "image_size": [14, 24, 24],
                     "scalar_size": 6,
                     "latent_dim": 512,                                                 # Deterministic hidden state size
@@ -77,8 +77,8 @@ class Config():
                 },
 
                 "Goalmodel" : {
-                    "datapath"      : str(self.parent_path / "data/goalmodel/"),
-                    "modelfile"     : str(self.parent_path / "weights/goalmodel.pth"),
+                    "datapath"      : "MoJo/hierarchical/data/goalmodel/",
+                    "modelfile"     : "MoJo/hierarchical/weights/goalmodel.pth",
                     "input_dim"     : 512,         #State is output from world model
                     "hid1_dim"      : 256,          #Hidden 1
                     "hid2_dim"      : 128,          #Hidden 2
@@ -87,7 +87,7 @@ class Config():
                 },                
                 
                 "Manager" : {
-                    "modelfile"     :str( self.parent_path / "weights/manager.pth"),
+                    "modelfile"     : "MoJo/hierarchical/weights/manager.pth",
                     "eps_clip"      : 0.2,          #Clip parameter for PPO
                     "gamma"         : 0.99,         #Discount factor
                     "lr_actor"      : 0.00003,      #Learning rate for actor network
@@ -101,7 +101,7 @@ class Config():
                 },
 
                 "Worker" : {
-                    "modelfile"     : str(self.parent_path / "weights/worker.pth"),
+                    "modelfile"     : "MoJo/hierarchical/weights/worker.pth",
                     "eps_clip"      : 0.2,          #Clip parameter for PPO
                     "gamma"         : 0.99,         #Discount factor
                     "lr_actor"      : 0.00003,      #Learning rate for actor network
