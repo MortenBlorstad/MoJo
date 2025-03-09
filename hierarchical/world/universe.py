@@ -374,7 +374,7 @@ class Universe():
         #close_to_start = (np.sqrt(23**2 +23**2) - np.linalg.norm(state.p0ShipPos_unfiltered, axis=1)) / np.sqrt(23**2 +23**2) # (16x1)
         close_to_start = penalty_for_proximity(state.p0ShipPos_unfiltered, grid_size=23)
         
-        in_points_zone = is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius= 4)
+        in_points_zone = is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius = 5)
 
         #distance_from_center = compute_distances_from_map_center(state.p0ShipPos_unfiltered)
 
@@ -393,7 +393,7 @@ class Universe():
         num_in_points_zone = in_points_zone.sum()
         point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
 
-        relic_not_found = ~np.any(state.relic_nodes == 1)
+        not_found = np.any(state.relic_nodes == 1)
 
         
         factor = 0.2*(100/(match_steps**1.333+505))
@@ -416,8 +416,9 @@ class Universe():
         #     75%	        25%	            0.0821
         #     100%	        0%	            0.0067
         #print("relic_not_found", tiles_unobserved_penalty*(match_steps<50 or relic_not_found) )
-        explore_reward = (distance_reward+tiles_unobserved_penalty)*(match_steps<50 or relic_not_found) 
-        reward = np.expand_dims(0.5*points_ratio + 0.2*this_points_ratio*(match_steps>50)+  explore_reward + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
+        explore_reward = distance_reward+tiles_unobserved_penalty
+        explore_reward = np.where(in_points_zone,-0.01,  explore_reward) 
+        reward = np.expand_dims(0.2*points_ratio + 0.5*this_points_ratio +  explore_reward + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
         #reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 
         
