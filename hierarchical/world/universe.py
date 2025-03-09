@@ -131,6 +131,29 @@ def penalty_for_proximity(positions, grid_size=23):
     
     return 1-penalties
 
+import scipy.special
+
+def compute_softmax_penalty(heatmap, unit_positions):
+    """
+    Converts the heatmap into probabilities (softmax) and penalizes positions 
+    that have a low probability of being optimal.
+
+    Returns:
+    - np.array: (N,) array of penalties for each unit.
+    """
+    # Flatten heatmap and apply softmax (normalize into probabilities)
+    heatmap_flat = heatmap.flatten()
+    heatmap_probs = scipy.special.softmax(heatmap_flat).reshape(heatmap.shape)
+
+    # Get probability of each unit's location
+    unit_probs = np.array([heatmap_probs[x, y] for x, y in unit_positions])
+
+    # Define penalty as "1 - probability of being in a good location"
+    penalty = 1 - unit_probs  # Higher penalty for less optimal locations
+
+    return penalty
+
+
 def generate_arch_positions(start_pos=(0, 0), radius=18, num_positions=16):
     """
     Generates evenly spread positions in an arch from 0° to 90° relative to a given start position.
@@ -178,8 +201,9 @@ def compute_distances_to_arch(unit_positions, arch_positions):
 
     # Compute Euclidean distance for each corresponding unit and arch position
     distances = np.linalg.norm(unit_positions - arch_positions, axis=1)
+    max_possible_distance = 2 * 18  # Max distance between any two points in the arch
 
-    return distances
+    return distances/max_possible_distance
 
 
 
@@ -276,6 +300,47 @@ def compute_distances_from_map_center(unit_positions, grid_size=(24, 24)):
     # Compute Manhattan distances
     manhattan_distances = np.abs(unit_positions[:, 0] - center_x) + np.abs(unit_positions[:, 1] - center_y)
     return manhattan_distances/(center_x + center_y - 2) # Normalize by maximum distance 
+
+
+
+
+
+def get_closest_relic_distance(ship_positions, relic_nodes, max_distance=12):
+    """
+    Computes the minimum distance from each ship to the closest relic.
+    Handles cases where no relics exist.
+
+    Parameters:
+    - ship_positions (np.array): (N,2) array of (x, y) ship positions.
+    - relic_nodes (np.array): 2D grid where `1` represents relic locations.
+    - max_distance (int): The maximum grid distance for normalization.
+
+    Returns:
+    - np.array: (N,) array of normalized distances.
+    """
+    # Ensure ship_positions is a NumPy array and properly shaped
+    ship_positions = np.asarray(ship_positions)
+    if ship_positions.ndim != 2 or ship_positions.shape[1] != 2:
+        raise ValueError(f"ship_positions must have shape (N,2), but got {ship_positions.shape}")
+
+    # Extract (x, y) positions of relics
+    relic_positions = np.argwhere(relic_nodes == 1)  # Ensures shape (M,2)
+
+    # If there are no relics, return max penalty distance for all ships
+    if relic_positions.shape[0] == 0:
+        return np.ones(len(ship_positions))  # Max penalty (distance = 1)
+
+    # Compute distances between ships and relics
+    distances = cdist(ship_positions, relic_positions)  # (N, M)
+
+    # Get the closest relic distance for each ship
+    closest_distances = np.min(distances, axis=1)  # (N,)
+
+    # Normalize by max possible diagonal distance in a 12x12 space
+    max_possible_distance = np.sqrt(max_distance**2 + max_distance**2)
+    return closest_distances / max_possible_distance
+
+
 
 
 class Universe():
@@ -378,7 +443,7 @@ class Universe():
 
         #distance_from_center = compute_distances_from_map_center(state.p0ShipPos_unfiltered)
 
-        #distance_from_arch = compute_distances_to_arch(state.p0ShipPos_unfiltered, self.arc_positions)
+        distance_from_arch = -compute_distances_to_arch(state.p0ShipPos_unfiltered, self.arc_positions)
 
         a, b = self.teampoints, self.opponent_teampoints
         points_ratio = (a - b) / (a + b + 1)
@@ -393,7 +458,7 @@ class Universe():
         num_in_points_zone = in_points_zone.sum()
         point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
 
-        not_found = np.any(state.relic_nodes == 1)
+        found = np.any(state.relic_nodes == 1)
 
         
         factor = 0.2*(100/(match_steps**1.333+505))
@@ -404,7 +469,7 @@ class Universe():
         #distance_reward += distance_from_arch * factor
 
         stacking_in_pointzone_penalty = np.zeros(16)
-        stacking_in_pointzone_penalty = calculate_stacking_penalty(in_points_zone, state.player_units_count, state.p0ShipPos_unfiltered, stacking_in_pointzone_penalty)
+        stacking_in_pointzone_penalty = -calculate_stacking_penalty(in_points_zone, state.player_units_count, state.p0ShipPos_unfiltered, stacking_in_pointzone_penalty)
 
         unobserved_fraction =  ((1-self.observed_map.ravel()).sum() / (24*24))
         scaling_factor = 5 # scaling_factor = 5
@@ -416,9 +481,19 @@ class Universe():
         #     75%	        25%	            0.0821
         #     100%	        0%	            0.0067
         #print("relic_not_found", tiles_unobserved_penalty*(match_steps<50 or relic_not_found) )
-        explore_reward = distance_reward+tiles_unobserved_penalty
+        explore_reward = distance_reward+ tiles_unobserved_penalty + distance_from_arch
         explore_reward = np.where(in_points_zone,-0.01,  explore_reward) 
-        reward = np.expand_dims(0.2*points_ratio + 0.5*this_points_ratio +  explore_reward + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
+        distance_to_closest_relic = -get_closest_relic_distance(state.p0ShipPos_unfiltered, state.relic_nodes, max_distance=12)
+        exploit_reward = np.where(found, distance_to_closest_relic, 0)
+        exploit_reward = np.where(in_points_zone, exploit_reward*0.1, exploit_reward)
+
+        position_penalty = -compute_softmax_penalty(self.relic_heatmap, state.p0ShipPos_unfiltered)
+        position_penalty = np.where(found, position_penalty, 0)
+
+        
+        reward = np.expand_dims(0.2*points_ratio + 0.5*this_points_ratio + exploit_reward +
+                                explore_reward + point_factor*(self.thiscore-1)+
+                                stacking_in_pointzone_penalty + position_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
         #reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 
         
