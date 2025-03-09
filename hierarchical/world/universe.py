@@ -263,6 +263,8 @@ def is_unit_within_radius(grid, unit_positions, radius):
     return np.any(distances <= radius, axis=1)  # (N,) boolean array
 
 
+import numpy as np
+
 def calculate_stacking_penalty(in_points_zone, player_units_count, p0ShipPos_unfiltered, stacking_in_pointzone_penalty):
     """
     Calculates the stacking penalty for units in a designated zone.
@@ -289,10 +291,15 @@ def calculate_stacking_penalty(in_points_zone, player_units_count, p0ShipPos_unf
         valid_indices = valid_indices[valid_positions_mask]  # Filter indices accordingly
 
         if valid_positions.shape[0] > 0:
+            # Compute stacking penalties (increase penalty with more stacking)
+            penalties = (player_units_count[valid_positions[:, 0], valid_positions[:, 1]] - 1)/2
+            penalties = np.clip(penalties, 0, None)  # Ensure penalty is never negative
+            
             # Assign penalties only for valid indices
-            stacking_in_pointzone_penalty[valid_indices] = (1 - player_units_count[valid_positions[:, 0], valid_positions[:, 1]])/6
-    
+            stacking_in_pointzone_penalty[valid_indices] = penalties
+
     return stacking_in_pointzone_penalty
+
 
 def compute_distances_from_map_center(unit_positions, grid_size=(24, 24)):
     # Compute the center of the grid
@@ -481,8 +488,10 @@ class Universe():
         #     75%	        25%	            0.0821
         #     100%	        0%	            0.0067
         #print("relic_not_found", tiles_unobserved_penalty*(match_steps<50 or relic_not_found) )
-        explore_reward = distance_reward+ tiles_unobserved_penalty + distance_from_arch
+        explore_reward = 0.2*distance_reward + tiles_unobserved_penalty + distance_from_arch
         explore_reward = np.where(in_points_zone,-0.01,  explore_reward) 
+       
+       
         distance_to_closest_relic = -get_closest_relic_distance(state.p0ShipPos_unfiltered, state.relic_nodes, max_distance=12)
         exploit_reward = np.where(found, distance_to_closest_relic, 0)
         exploit_reward = np.where(in_points_zone, exploit_reward*0.1, exploit_reward)
@@ -492,7 +501,7 @@ class Universe():
 
         
         reward = np.expand_dims(0.2*points_ratio + 0.5*this_points_ratio + exploit_reward +
-                                explore_reward + point_factor*(self.thiscore-1)+
+                                explore_reward + point_factor*(self.thiscore-1) +
                                 stacking_in_pointzone_penalty + position_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
         #reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 
