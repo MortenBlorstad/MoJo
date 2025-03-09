@@ -224,7 +224,7 @@ class Encoder(nn.Module):
             nn.SiLU(),
             nn.Linear(1024, config['latent_dim']),
             nn.LayerNorm(config['latent_dim']),
-            nn.SiLU()
+            nn.Tanh()
         )
         
         

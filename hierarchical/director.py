@@ -18,11 +18,11 @@ class Director():
 
         #Get variables
         self.player = player
-        self.u = Universe(player, env_cfg, horizont=1)        
+        self.u:Universe = Universe(player, env_cfg, horizont=1)        
         self.cfg = Config().Get("Director")   
         self.clockTicks = self.cfg["TimeSteps_K"]
         self.updateFreq = self.cfg["TimeSteps_E"]
-        self.numShips = 16
+        self.numShips:int = 16
         self.training = training
 
         #Init WANDB for training
@@ -96,6 +96,10 @@ class Director():
              
         
         #Keep track of states for training (still torch.tensor @ device)
+        s = s.expand(16, -1)
+        unit_info = torch.stack([torch.tensor(self.u.get_position_info(i), dtype = torch.float32) for i in range(16)]).to(self.worldmodel.device)
+        one_hot = torch.stack([torch.tensor(self.GetOneHot(i,unitene[i]), dtype = torch.float32) for i in range(16)]).to(self.worldmodel.device)
+        s = torch.cat([s, one_hot, unit_info], axis=1) # (16, 512+32+18)
         if self.training:
             self.wmstates.append(s)
             
@@ -108,7 +112,7 @@ class Director():
 
         #Check to see if we should update world model & goal model
         if self.training:
-            self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step == 100)
+            # self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step == 100)
             if (step > 0 and step % self.updateFreq == 0):                
                 self.update(step)
 
@@ -124,10 +128,10 @@ class Director():
     
     def update(self, step):
 
-        #Update world model here 
-        if step > 0 and step % 64 == 0:  
-            world_model_matrics = self.worldmodel.train()
-            self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
+        # #Update world model here 
+        # if step > 0 and step % 64 == 0:  
+        #     world_model_matrics = self.worldmodel.train()
+        #     self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
         
         #Update goal model
         l = self.goalmodel.backwardFromList(self.wmstates)        
@@ -142,12 +146,19 @@ class Director():
         self.manager.saveDescriptive(self.cfg["Manager"]["modelfile"],"Manager")
         self.worker.saveDescriptive(self.cfg["Worker"]["modelfile"],"Worker")
 
+    def GetOneHot(self,shipIndex, energy):
+
+        map = np.zeros(32)
+        map[shipIndex] = 1
+        map[shipIndex+self.numShips] = energy/100
+
+        return map
     
     class ShipActions():
     
         def __init__(self,parent,shipIndex):
 
-            self.parent = parent
+            self.parent:Director = parent
             self.shipIndex = shipIndex
             self.reset()
 
@@ -181,7 +192,7 @@ class Director():
         def setGoal(self):
 
             #Let manager pick a goal for this ship
-            z = self.parent.manager.select_action(self.parent.s,self.shipIndex)
+            z = self.parent.manager.select_action(self.parent.s[self.shipIndex],self.shipIndex)
 
             #reset cumuative extrinsic reward            
             self.cumuativeExtrinsic = 0
@@ -192,14 +203,16 @@ class Director():
 
             #Reset clock
             self.goalclock = self.parent.clockTicks            
-
+        
         def GetOneHot(self,e):
 
             map = np.zeros(32)
             map[self.shipIndex] = 1
             map[self.shipIndex+self.parent.numShips] = e/100
-
             return map
+
+
+      
         
         def rewardShip(self,terminal):
 
@@ -224,11 +237,14 @@ class Director():
                 self.setGoal()
 
             #Create the state, as seen for a single ship
+           
             shipstate = np.concat([
-                self.parent.s,
+                self.parent.s[self.shipIndex],
                 self.goal,
-                self.GetOneHot(e)
+                self.GetOneHot(e),
+                self.parent.u.get_position_info(self.shipIndex)
             ])
+            
             
             #Get the current buffer length for this ship
             l = self.parent.worker.bufferList[self.shipIndex].length()  
@@ -236,7 +252,7 @@ class Director():
             if self.parent.training:              
 
                 #Check if it is update o'clock: timeout or last step in match
-                if (l > 0 and l % self.parent.updateFreq == 0) or (step == 101 and l > 0):
+                if (l > 0 and l % self.parent.updateFreq == 0) or (step == 100 and l > 0):
 
                     #<Insert Worker dreaming here>
 
@@ -244,7 +260,7 @@ class Director():
                     l = self.parent.worker.update(self.shipIndex)
                     self.parent.ww.record("wrkloss",l)        
 
-                if step == 101:
+                if step == 100:
                     self.missionComplete()
             else:
                 self.parent.worker.bufferList[self.shipIndex].clear()

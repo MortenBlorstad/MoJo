@@ -72,7 +72,7 @@ def InitWorker(cfg, fromfile = True):
         cfg['action_std'],
         cfg['behaviors']
     )
-    if fromfile:
+    if fromfile and os.path.exists(cfg['modelfile']):
         wrk.load(cfg['modelfile'])
     return wrk
 
@@ -90,6 +90,6 @@ def InitManager(cfg, fromfile = True):
         cfg['action_std'],
         cfg['behaviors']
     )
-    if fromfile:
+    if fromfile and os.path.exists(cfg['modelfile']):
         mgr.load(cfg['modelfile'])
     return mgr

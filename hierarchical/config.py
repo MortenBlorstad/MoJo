@@ -27,7 +27,7 @@ class Config():
 
                 "Worldmodel" : {                    
                     "modelfile"     : "MoJo/hierarchical/weights/worldmodel.pt",
-                    "image_size": [14, 24, 24],
+                    "image_size": [15, 24, 24],
                     "scalar_size": 6,
                     "latent_dim": 512,                                                 # Deterministic hidden state size
                     "hidden_dim": 256,                                                  # Internal processing size
@@ -79,7 +79,7 @@ class Config():
                 "Goalmodel" : {
                     "datapath"      : "MoJo/hierarchical/data/goalmodel/",
                     "modelfile"     : "MoJo/hierarchical/weights/goalmodel.pth",
-                    "input_dim"     : 512,         #State is output from world model
+                    "input_dim"     : 512+ 32 + 18,         #State is output from world model
                     "hid1_dim"      : 256,          #Hidden 1
                     "hid2_dim"      : 128,          #Hidden 2
                     "latent_dim"    : 8,            #Goalmodel latent space is 8 in the paper
@@ -92,7 +92,7 @@ class Config():
                     "gamma"         : 0.99,         #Discount factor
                     "lr_actor"      : 0.00003,      #Learning rate for actor network
                     "lr_critic"     : 0.0001,       #Learning rate for critic network
-                    "state_dim"     : 512,         #State is output from world model
+                    "state_dim"     : 512+ 32 + 18,         #State is output from world model
                     "action_dim"    : 8,            #Manager selects a goals in 'goal latent space'. Must match Goalmodel.
                     "K_epochs"      : 4,            #PPO epochs
                     "action_std"    : 0.5,          #Initial action std                    
@@ -106,13 +106,12 @@ class Config():
                     "gamma"         : 0.99,         #Discount factor
                     "lr_actor"      : 0.00003,      #Learning rate for actor network
                     "lr_critic"     : 0.0001,       #Learning rate for critic network
-                    "state_dim"     : 2*512 + 32,  #State is conatitnation of: WorldModel (1024) + Decoded(Goal latent) (1024) + Position/Energy as OneHot (16+16)
+                    "state_dim"     : 2*(512+32+18) + 32 + 18,  #State is conatitnation of: WorldModel (1024) + Decoded(Goal latent) (1024) + Position/Energy as OneHot (16+16)
                     "action_dim"    : 6,            #Actions = [Still, Up, Right, Down, Left, Shoot]
                     "K_epochs"      : 4,            #PPO epochs
                     "action_std"    : 0.5,          #Initial action std
                     "cntns_actn_spc": False,        #Use contionous action space?
-                    "behaviors"     : 16            #Number of behaviors workers. Should match max num ships
-                    
+                    "behaviors"     : 16            #Number of behaviors workers. Should match max num ships                    
                 }       
             }
     }

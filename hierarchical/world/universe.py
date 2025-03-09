@@ -12,7 +12,7 @@ from world.nebula_astroid import NebulaAstroid
 from world.energy import Energy
 from world.scalarencoder import NaiveScalarEncoder
 from world.obs_to_state import State
-
+from scipy.spatial.distance import cdist
 
 def single_relic_heatmap(relic_position, shape):
     """
@@ -92,6 +92,22 @@ def aggregate_relic_heatmaps(relic_grid):
 
     return aggregated_heatmap
 
+
+def compute_distance_matrix(positions):
+    """
+    Computes the pairwise Euclidean distance matrix for 16 units
+    and the distance of each unit to the origin (0,0).
+
+    Args:
+        positions (np.array): (16,2) array with (x,y) coordinates.
+    return:
+        distance_matrix (np.array): (16,16) array with pairwise distances.
+        padded_distance_matrix (np.array): (24,24) array with padded pairwise distances.
+    """
+    max_possible_distance = np.sqrt(23**2 + 23**2)  # ~32.52
+    distance_matrix = cdist(positions, positions)/max_possible_distance  # Shape: (16,16)
+    padded_distance_matrix = np.pad(distance_matrix, ((4, 4), (4, 4)), mode='constant', constant_values=0)
+    return distance_matrix, padded_distance_matrix
 
 def penalty_for_proximity(positions, grid_size=23):
     """
@@ -334,7 +350,17 @@ class Universe():
         self.arc_positions = generate_arch_positions(start_pos=(0, 0), radius=18, num_positions=16)
         self.zap_options = jnp.zeros((24,24))
 
-    
+    def get_position_info(self, unit_index:int)->np.ndarray:
+        """
+        Get the position information for a unit.
+
+        Args:
+            unit_index (int): The index of the unit.
+        return:
+            np.ndarray: The position information, shape (2 + 16). Normalized x, y, relative distance to the other units.
+        """
+        return np.concat([self.p0ShipPos_unfiltered[unit_index]/23 ,self.distance_matrix[unit_index]] )
+        
 
 
     def get_reward(self,state:State, unexplored_count: int) -> float:
@@ -393,7 +419,6 @@ class Universe():
         explore_reward = (distance_reward+tiles_unobserved_penalty)*(match_steps<50 or relic_not_found) 
         reward = np.expand_dims(0.5*points_ratio + 0.2*this_points_ratio*(match_steps>50)+  explore_reward + point_factor*(self.thiscore-1)+ stacking_in_pointzone_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
-        
         #reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 
         
         return reward
@@ -423,6 +448,8 @@ class Universe():
 
         #Create state from observation        
         state:State = State(observation,self.player)
+        self.p0ShipPos_unfiltered = state.p0ShipPos_unfiltered
+
 
         self.teampoints = state.teampoints
         self.opponent_teampoints = state.opponent_teampoints
@@ -445,6 +472,7 @@ class Universe():
         
 
         
+
         self.p0pos.learn(state.p0ShipPos)        
         self.p1pos.learn(state.p1ShipPos)        
         
@@ -501,6 +529,10 @@ class Universe():
         predictions.append(np.expand_dims(self.relic_heatmap, axis=0))
         # observed map
         predictions.append(np.expand_dims(self.observed_map, axis=0))
+
+        # add relative distances 
+        self.distance_matrix, self.padded_distance_matrix = compute_distance_matrix(state.p0ShipPos_unfiltered)
+        predictions.append(np.expand_dims(self.padded_distance_matrix, axis=0))
 
         # ship energy
         #predictions.append(state.player_sparse_energy_map)      

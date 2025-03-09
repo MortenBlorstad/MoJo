@@ -6,11 +6,11 @@ class Critic(nn.Module):
     def __init__(self,state_dim):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(state_dim, 64),
+            nn.Linear(state_dim, 512),
             nn.Tanh(),
-            nn.Linear(64, 64),
+            nn.Linear(512, 256),
             nn.Tanh(),
-            nn.Linear(64, 1)
+            nn.Linear(256, 1)
         )
 
     def forward(self, x):

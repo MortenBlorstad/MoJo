@@ -1,7 +1,7 @@
 world_model:
 
 # World model configuration
-  "image_size": [14, 24, 24]
+  "image_size": [15, 24, 24]
   "scalar_size": 6
   "latent_dim": 512 # Deterministic hidden state size
   "hidden_dim": 256 # Internal processing size

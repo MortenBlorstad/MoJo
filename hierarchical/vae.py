@@ -18,7 +18,7 @@ class VAE(nn.Module):
             nn.Linear(input_dim, hid1_dim),            
             torch.nn.PReLU(),
             nn.Linear(hid1_dim, hid2_dim),            
-            torch.nn.PReLU()
+            torch.nn.Tanh()
             )
         
         # latent mean and variance 
