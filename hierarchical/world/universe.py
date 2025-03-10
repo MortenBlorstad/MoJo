@@ -488,7 +488,7 @@ class Universe():
         #     75%	        25%	            0.0821
         #     100%	        0%	            0.0067
         #print("relic_not_found", tiles_unobserved_penalty*(match_steps<50 or relic_not_found) )
-        explore_reward = 0.2*distance_reward + tiles_unobserved_penalty + distance_from_arch
+        explore_reward = 0.1*distance_reward + 0.2*tiles_unobserved_penalty + distance_from_arch
         explore_reward = np.where(in_points_zone,-0.01,  explore_reward) 
        
        
@@ -500,7 +500,7 @@ class Universe():
         position_penalty = np.where(found, position_penalty, 0)
 
         
-        reward = np.expand_dims(0.2*points_ratio + 0.5*this_points_ratio + exploit_reward +
+        reward = np.expand_dims(0.2*points_ratio + 0.2*this_points_ratio + exploit_reward +
                                 explore_reward + point_factor*(self.thiscore-1) +
                                 stacking_in_pointzone_penalty + position_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
