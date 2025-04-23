@@ -390,12 +390,10 @@ class Universe():
 
         #Add positional encoding
 
-        step_embedding = np.expand_dims(state.step_embedding, axis=0) # Expand to batch shape
-        
+        step_embedding = np.expand_dims(state.step_embedding, axis=0) # Expand to batch shape        
 
         stacked_array = np.concatenate(predictions, axis=0)  
-        stacked_array = np.expand_dims(stacked_array, axis=0)  # Expand to batch shape
-        
+        stacked_array = np.expand_dims(stacked_array, axis=0)  # Expand to batch shape        
 
         sum_score = max(self.teampoints+self.opponent_teampoints,1)
         scalers = np.expand_dims(self.scaler_features, axis=0) # Expand to batch shape
@@ -404,7 +402,6 @@ class Universe():
         scalers = np.concatenate((scalers, new_features), axis=1) # Shape: (1, 6)
         
         one_hot_unit_id = np.expand_dims(np.eye(16), axis=0)
-
         
         one_hot_unit_energy = np.diag(state.unit_energies) / 100 # init_unit_energy: int = 100, max_unit_energy: int = 400
         one_hot_unit_energy = np.expand_dims(one_hot_unit_energy, axis=0)

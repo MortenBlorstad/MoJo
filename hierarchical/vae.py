@@ -5,12 +5,13 @@ from torch.optim import Adam
 
 class VAE(nn.Module):
 
-    def __init__(self, device, input_dim, hid1_dim, hid2_dim, latent_dim, lr):
+    def __init__(self, device, input_dim, hid1_dim, hid2_dim, latent_dim, lr, beta=1.0):
         super(VAE, self).__init__()
 
         self.view_dim = input_dim
         self.device = device
         self.latent_dim = latent_dim
+        self.beta = beta  # Beta parameter for beta-VAE
         
         # encoder
         self.encoder = nn.Sequential(
@@ -58,27 +59,31 @@ class VAE(nn.Module):
             mean, _ = self.encode(torch.Tensor(x).to(self.device))
             return mean
         
+    def inference(self, x):
+        with torch.no_grad():
+            mean, _ = self.encode(x)
+            return mean
+        
     def forward(self, x):
         mean, log_var = self.encode(x)
         z = self.reparameterization(mean, torch.exp(0.5 * log_var)) 
         x_hat = self.decode(z)  
         return x_hat, mean, log_var    
 
-
     def goal_loss(self, x, x_hat, mean, log_var):
-        
+        # Reconstruction loss
         mse_loss = nn.functional.mse_loss(x_hat, x, reduction='sum')
-        kld_loss = - 0.5 * torch.sum(1+ log_var - mean.pow(2) - log_var.exp())
+        
+        # KL divergence with beta scaling
+        kld_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+        kld_loss = self.beta * kld_loss  # Scale KL divergence by beta
         
         return mse_loss + kld_loss
 
-    
     def backwardFromList(self,x):
         return self.backward(torch.stack(x, dim=0))
     
-
     def backward(self,x):
-            
         #View [BATCH,1,25,24,24] as [BATCH, 14400]
         x = x.view(-1, self.view_dim).to(self.device)
 
@@ -94,7 +99,6 @@ class VAE(nn.Module):
 
         return rval
         
-    
     def save(self, path):        
         torch.save(self.state_dict(), path)
     
@@ -108,7 +112,6 @@ class VAE(nn.Module):
 
     @staticmethod
     def Create(cfg):
-
         device = VAE.__Device()
 
         return VAE(
@@ -117,12 +120,12 @@ class VAE(nn.Module):
             cfg['hid1_dim'],
             cfg['hid2_dim'],
             cfg['latent_dim'],
-            cfg['lr']        
+            cfg['lr'],
+            beta=cfg['beta']        
         ).to(device)
 
     @staticmethod
     def Load(cfg, EVAL = False):  
-
         model = VAE.Create(cfg)
         model.load_state_dict(torch.load(cfg['modelfile'], weights_only=True))
         if EVAL:

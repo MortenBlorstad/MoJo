@@ -92,17 +92,12 @@ class EquationSet():
     #a is a system of M equations with N unique symbols s_i with [s1,s2,...sN] ∈ [0,1]
     #b are the M right hand sides of the equations
     def eqSolve(self,a,b):
-
         
         #Get possible bitstrings as jnp.array  
         mask = jnp.array([b for b in product([0, 1], repeat=a.shape[1])])
-
-
         
         #Get possible bitstrings as jnp.array  
         mask = jnp.array([b for b in product([0, 1], repeat=a.shape[1])])
-
-
 
         #Compute row-wise sum of 'a AND b' and compare to b matrix to check if bitstring is a valid solution to equations
         res = jnp.sum(a[jnp.newaxis,:]&mask[:,jnp.newaxis,:],axis=2) == b
@@ -119,20 +114,13 @@ class EquationSet():
         #Set confirmed relics to probability 1
         if len(relics) > 0:
             indices = relics.tojnp()
-            relicmap = relicmap.at[(indices[:,0],indices[:,1])].add(1)
-
-
-    
-
-    
-
+            relicmap = relicmap.at[(indices[:,0],indices[:,1])].add(1) 
 
         #If there are any equations to be solved
         if self.equations:                
 
             #Create forward/backward lookup dictionaries for pos <-> index
             self.makeLookupDicts()
-
 
             #Create the a and b matrices for the equation set
             a = jnp.array([self.row(lst) for lst,_ in self.equations])
@@ -151,8 +139,7 @@ class EquationSet():
                 if b.dtype != jnp.int32:
                     print("b", b)
                     print("equations", self.equations)
-                return relicmap
-            
+                return relicmap            
 
             #Solve equations
             res = self.eqSolve(a,b)

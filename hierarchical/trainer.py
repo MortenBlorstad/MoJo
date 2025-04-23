@@ -17,7 +17,7 @@ sys.path.insert(0, mojo_path)  # Ensure it is searched first
 from hierarchical.config import Config
 from base_agent import Agent
 from director import Director
-
+from tqdm import tqdm
 from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 
 cfg = Config().Get("Trainer")
@@ -27,16 +27,22 @@ if cfg['logepisodes']:
 
 num_games = 3
 
+#Get the environment configuration
+_, info = env.reset()
+
+#Create the agents
+agents = [
+    Director(player="player_0", env_cfg = info['params'],training=True),
+    Agent(player="player_1", env_cfg = info['params'])
+]
+
+print("Starting training")
+
+#Run the games
+#for game in tqdm(range(num_games)):
 for game in range(num_games):
 
-    print("Starting game",game+1)
-    
     obs, info = env.reset()
-
-    agents = [
-        Director(player="player_0", env_cfg = info['params'],training=True),
-        Agent(player="player_1", env_cfg = info['params'])
-    ]
     done = False
 
     while not done:
@@ -48,6 +54,9 @@ for game in range(num_games):
             actions[agent.player] = action        
         obs, reward, _, _, _ = env.step(actions)
         done = step == 100
+
+    #Print running averages
+    print(agents[0].running_averages)
 
     if game > 0 and game % cfg['modelSaveFrequency'] == 0:
         agents[0].save()

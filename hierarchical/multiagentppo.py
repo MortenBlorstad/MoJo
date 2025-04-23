@@ -6,7 +6,7 @@ from torch.distributions import Categorical
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from hierarchical.multiagentutils import Critic, EMSDNormalizer, MgrRolloutBuffer as RolloutBuffer
+from hierarchical.multiagentutils import Critic, WrkrRolloutBuffer,MgrRolloutBuffer, Normalize
 
 ################################## set device ##################################
 print("============================================================================================")
@@ -49,10 +49,8 @@ class ActorCriticBase(nn.Module):
                             nn.Linear(64, action_dim),
                             nn.Softmax(dim=-1)
                         )
-        #Use double critics : extrinsic & exploration
-        self.critic_extr = Critic(state_dim)
-        self.critic_expl = Critic(state_dim)
-            
+        # critic
+        self.critic = Critic(state_dim)
         
     def set_action_std(self, new_action_std):
         if self.has_continuous_action_space:
@@ -74,10 +72,9 @@ class BehaviourAC(ActorCriticBase):
 
         action = dist.sample()
         action_logprob = dist.log_prob(action)
-        state_val_extr = self.critic_extr(state)
-        state_val_expl = self.critic_expl(state)
+        state_val = self.critic(state)
 
-        return action.detach(), action_logprob.detach(), state_val_extr.detach(), state_val_expl.detach()
+        return action.detach(), action_logprob.detach(), state_val.detach()
 
 
 class CommonAC(ActorCriticBase):
@@ -101,16 +98,16 @@ class CommonAC(ActorCriticBase):
             dist = Categorical(action_probs)
 
         action_logprobs = dist.log_prob(action)
-        dist_entropy = dist.entropy()        
-        state_val_extr = self.critic_extr(state)
-        state_val_expl = self.critic_expl(state)        
+        dist_entropy = dist.entropy()
+        state_values = self.critic(state)
         
-        return action_logprobs, state_val_extr,state_val_expl, dist_entropy
+        return action_logprobs, state_values, dist_entropy
 
 
 
-class MultiAgentManagerPPO:
-    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std_init=0.6, num_workers=2):
+class MultiAgentPPO:
+
+    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std_init=0.6, num_workers=2, isWorker=True):
 
         self.has_continuous_action_space = has_continuous_action_space
 
@@ -121,17 +118,33 @@ class MultiAgentManagerPPO:
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
         self.num_workers = num_workers
+        self.isWorker = isWorker
         
         self.bufferList = []
-        for _ in range(num_workers):
-            self.bufferList.append(RolloutBuffer())
+
+        if self.isWorker:
+            for _ in range(num_workers):
+
+                #Initialize worker buffer
+                self.bufferList.append(WrkrRolloutBuffer())
+
+                # Initialize normalizer  
+                self.normalize = Normalize()      
+        else:
+            for _ in range(num_workers):
+                
+                #Initialize manager buffer
+                self.bufferList.append(MgrRolloutBuffer())
+
+                # Initialize normalizer        
+                self.extrinsic_normalize =   Normalize()
+                self.exploration_normalize = Normalize()
         
         self.commonac = CommonAC(state_dim, action_dim, has_continuous_action_space, action_std_init).to(device)
         self.optimizer = torch.optim.Adam([
-            {'params': self.commonac.actor.parameters(), 'lr': lr_actor},
-            {'params': self.commonac.critic_extr.parameters(), 'lr': lr_critic},
-            {'params': self.commonac.critic_expl.parameters(), 'lr': lr_critic}
-        ])
+                        {'params': self.commonac.actor.parameters(), 'lr': lr_actor},
+                        {'params': self.commonac.critic.parameters(), 'lr': lr_critic}
+                    ])
 
         self.workerACs = []
         for _ in range(num_workers):
@@ -162,14 +175,13 @@ class MultiAgentManagerPPO:
 
         with torch.no_grad():
             state = torch.FloatTensor(state).to(device)
-            action, action_logprob, state_val_extr, state_val_expl = self.workerACs[worker_id].act(state)                
+            action, action_logprob, state_val = self.workerACs[worker_id].act(state)
 
         self.bufferList[worker_id].states.append(state)
         self.bufferList[worker_id].actions.append(action)
         self.bufferList[worker_id].logprobs.append(action_logprob)
-        self.bufferList[worker_id].state_values_extr.append(state_val_extr)
-        self.bufferList[worker_id].state_values_expl.append(state_val_expl)          
-
+        self.bufferList[worker_id].state_values.append(state_val)            
+           
         if self.has_continuous_action_space:
             return action.detach().cpu().numpy().flatten()
         else:
@@ -180,78 +192,54 @@ class MultiAgentManagerPPO:
         def conditional_squeeze(tensor):
             return tensor.squeeze() if tensor.ndim > 1 else tensor
 
-        # Initialize EMSD normalizers
-        extrinsic_normalizer =      EMSDNormalizer(alpha=0.1)
-        exploration_normalizer =    EMSDNormalizer(alpha=0.1)
+        if self.isWorker:
 
-        # Monte Carlo estimate of returns for extrinsic and exploration rewards
-        extrinsic_rewards = self.bufferList[worker_id].extrinsic_rewards  # List of extrinsic rewards
-        exploration_rewards = self.bufferList[worker_id].exploration_rewards  # List of exploration rewards
+            #Normalize rewards using normalizer from papers implementation
+            rewards = torch.tensor(self.bufferList[worker_id].rewards, dtype=torch.float32).to(device)
+            rewards = self.normalize(rewards)
 
-        discounted_extrinsic = []
-        discounted_exploration = []
-        G_extr, G_expl = 0, 0
+        else:
+            
+            #Normalize extrinsic and exploration rewards using normalizer from papers implementation
+            extrinsic_rewards = torch.tensor(self.bufferList[worker_id].extrinsic_rewards, dtype=torch.float32).to(device)
+            extrinsic_rewards = self.extrinsic_normalize(extrinsic_rewards)
 
-        for r_extr, r_expl, is_terminal in zip(
-            reversed(extrinsic_rewards), reversed(exploration_rewards), reversed(self.bufferList[worker_id].is_terminals)
-        ):
-            if is_terminal:
-                G_extr, G_expl = 0, 0
-            G_extr = r_extr + self.gamma * G_extr
-            G_expl = r_expl + self.gamma * G_expl
-            discounted_extrinsic.insert(0, G_extr)
-            discounted_exploration.insert(0, G_expl)
+            exploration_rewards = torch.tensor(self.bufferList[worker_id].exploration_rewards, dtype=torch.float32).to(device)
+            exploration_rewards = self.exploration_normalize(exploration_rewards)
 
-        # Normalize returns using EMSD        
-        normalized_extrinsic =   extrinsic_normalizer.normalize(discounted_extrinsic).to(device)
-        normalized_exploration = exploration_normalizer.normalize(discounted_exploration).to(device)
-
-        # Compute final return with weighted sum
-        w_extr, w_expl = 1.0, 0.1
-        rewards = w_extr * normalized_extrinsic + w_expl * normalized_exploration
+            # Compute final return with weighted sum
+            w_extr, w_expl = 1.0, 0.1   #Use same weights as the paper
+            rewards = w_extr * exploration_rewards + w_expl * exploration_rewards
         
-        #Convert list to tensor
+        #Convert lists to tensors
         old_states = torch.squeeze(torch.stack(self.bufferList[worker_id].states, dim=0)).detach().to(device)
         old_actions = torch.squeeze(torch.stack(self.bufferList[worker_id].actions, dim=0)).detach().to(device)
-        old_logprobs = torch.squeeze(torch.stack(self.bufferList[worker_id].logprobs, dim=0)).detach().to(device)   
-
-        #Extract old state values from both critics
-        old_state_values_extr = torch.squeeze(torch.stack(self.bufferList[worker_id].state_values_extr, dim=0)).detach().to(device)
-        old_state_values_expl = torch.squeeze(torch.stack(self.bufferList[worker_id].state_values_expl, dim=0)).detach().to(device)
-
-        #Compute total state value using weighted sum
-        old_state_values = w_extr * old_state_values_extr + w_expl * old_state_values_expl
+        old_logprobs = torch.squeeze(torch.stack(self.bufferList[worker_id].logprobs, dim=0)).detach().to(device)
+        old_state_values = torch.squeeze(torch.stack(self.bufferList[worker_id].state_values, dim=0)).detach().to(device)
 
         #Calculate advantages
-        advantages = rewards.detach() - old_state_values.detach()        
+        advantages = rewards.detach() - old_state_values.detach()
 
         #Optimize policy for K epochs
         for _ in range(self.K_epochs):
 
-            # Evaluate old actions using current policy
-            logprobs, state_values_extr, state_values_expl, dist_entropy = self.commonac.evaluate(old_states, old_actions)
+            #Evaluating old actions and values
+            logprobs, state_values, dist_entropy = self.commonac.evaluate(old_states, old_actions)
 
-            # Compute total state value estimate
-            state_values = w_extr * state_values_extr + w_expl * state_values_expl
-            state_values = conditional_squeeze(state_values)  # Match dimensions with rewards
-
-            # Compute PPO ratio
+            #Match state_values tensor dimensions with rewards tensor
+            state_values = conditional_squeeze(state_values)            
+            
+            #Finding the ratio (pi_theta / pi_theta__old)
             ratios = torch.exp(logprobs - old_logprobs.detach())
 
-            # Compute PPO surrogate losses
+            #Finding Surrogate Loss  
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
 
-            # Compute final PPO loss (with value loss from both critics)
-            loss = (
-                -torch.min(surr1, surr2) 
-                + 0.25 * self.MseLoss(state_values_extr, normalized_extrinsic)
-                + 0.25 * self.MseLoss(state_values_expl, normalized_exploration)
-                + 0.5 * self.MseLoss(state_values, rewards)  # Total value loss
-                - 0.01 * dist_entropy  # Entropy regularization
-            ).mean()
+            #Final loss of clipped objective PPO
+            loss = (-torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values, rewards) - 0.01 * dist_entropy).mean()
 
-            #Take gradient step
+            #Take gradient step        
             self.optimizer.zero_grad()
             #loss.mean().backward()
             loss.backward()
@@ -263,7 +251,7 @@ class MultiAgentManagerPPO:
         #Clear buffer
         self.bufferList[worker_id].clear()
 
-        return loss
+        return loss.detach().cpu().numpy()
     
     def save(self, checkpoint_path):
         torch.save(self.commonac.state_dict(), checkpoint_path)

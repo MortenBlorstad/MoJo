@@ -25,7 +25,7 @@ class Config():
                 "TimeSteps_K"       : 8,                                                #Director picks new goals every K time steps. Using same value as paper
                 "TimeSteps_E"       : 16,                                               #Update  for PPO. Using same value as paper
 
-                "Worldmodel" : {                    
+                "WorldmodelMorten" : {                    
                     "modelfile"     : str(self.parent_path / "weights/worldmodel.pt"),
                     "image_size": [41, 24, 24],
                     "scalar_size": 6,
@@ -76,14 +76,26 @@ class Config():
                     "block_size": 4,
                 },
 
+                "Worldmodel" : {
+                    "datapath"      : str(self.parent_path / "data/worldmodel/"),
+                    "modelfile"     : str(self.parent_path / "weights/worldmodel.pth"),
+                    "input_dim"     : 24198,        #State is output from universe
+                    "hid1_dim"      : 1024,         #Hidden 1
+                    "hid2_dim"      : 512,          #Hidden 2
+                    "latent_dim"    : 128,          #Wordlmode latent space (1024 in paper)
+                    "lr"            : 1e-3,          #Learning rate for World Model VAE
+                    "beta"          : 1.0           #Beta for WorldModel VAE
+                },                                
+
                 "Goalmodel" : {
                     "datapath"      : str(self.parent_path / "data/goalmodel/"),
                     "modelfile"     : str(self.parent_path / "weights/goalmodel.pth"),
-                    "input_dim"     : 1024,         #State is output from world model
-                    "hid1_dim"      : 256,          #Hidden 1
-                    "hid2_dim"      : 128,          #Hidden 2
+                    "input_dim"     : 128,          #State is output from world model
+                    "hid1_dim"      : 64,           #Hidden 1
+                    "hid2_dim"      : 32,           #Hidden 2
                     "latent_dim"    : 8,            #Goalmodel latent space is 8 in the paper
-                    "lr"            : 1e-3          #Learning rate for Goal VAE
+                    "lr"            : 1e-3,         #Learning rate for Goal VAE
+                    "beta"          : 1.0           #Beta for Goal VAE
                 },                
                 
                 "Manager" : {
@@ -92,12 +104,13 @@ class Config():
                     "gamma"         : 0.99,         #Discount factor
                     "lr_actor"      : 0.00003,      #Learning rate for actor network
                     "lr_critic"     : 0.0001,       #Learning rate for critic network
-                    "state_dim"     : 1024,         #State is output from world model
+                    "state_dim"     : 128,          #State is output from world model
                     "action_dim"    : 8,            #Manager selects a goals in 'goal latent space'. Must match Goalmodel.
                     "K_epochs"      : 4,            #PPO epochs
                     "action_std"    : 0.5,          #Initial action std                    
                     "cntns_actn_spc": True,         #Use contionous action space?
-                    "behaviors"     : 16            #Number of behaviors workers. Should match max num ships
+                    "behaviors"     : 16,           #Number of behaviors workers. Should match max num ships
+                    "isWorker"      : False         #Indicate hierarchy level to MultiAgentPPO
                 },
 
                 "Worker" : {
@@ -106,13 +119,13 @@ class Config():
                     "gamma"         : 0.99,         #Discount factor
                     "lr_actor"      : 0.00003,      #Learning rate for actor network
                     "lr_critic"     : 0.0001,       #Learning rate for critic network
-                    "state_dim"     : 2*1024 + 32,  #State is conatitnation of: WorldModel (1024) + Decoded(Goal latent) (1024) + Position/Energy as OneHot (16+16)
+                    "state_dim"     : 2*128 + 32,   #State is conatitnation of: WorldModel (128) + Decoded(Goal latent) (128) + Position/Energy as OneHot (16+16)
                     "action_dim"    : 6,            #Actions = [Still, Up, Right, Down, Left, Shoot]
                     "K_epochs"      : 4,            #PPO epochs
                     "action_std"    : 0.5,          #Initial action std
                     "cntns_actn_spc": False,        #Use contionous action space?
-                    "behaviors"     : 16            #Number of behaviors workers. Should match max num ships
-                    
+                    "behaviors"     : 16,           #Number of behaviors workers. Should match max num ships
+                    "isWorker"      : True          #Indicate hierarchy level to MultiAgentPPO                    
                 }       
             }
     }

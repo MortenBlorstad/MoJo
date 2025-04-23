@@ -6,12 +6,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from world.universe import Universe
 from hierarchical.config import Config
-from hierarchical.utils import getZapCoordsOnly, InitWorker, InitManager
+from hierarchical.utils import getZapCoordsOnly, InitWorker, InitManager, RunningAverages
 from hierarchical.vae import VAE
 from hierarchical.directorlossfuncs import MaxCosineNP as MaxCosine, ExplorationReward
-from world_model.world_model import WorldModel
 import torch
-
 class Director():    
    
     def __init__(self, player: str, env_cfg, training = False) -> None:
@@ -36,60 +34,59 @@ class Director():
             self.ww.wrkloss = []     #Add worker loss list (use average)     
            
             #------------------------------------------------------------------        
-                
+        
+        #Keep track of running averages
+        self.running_averages = RunningAverages()
+
+        #Load the Multi Agent PPO with double critic - continous action space
+        self.manager = InitManager(self.cfg["Manager"], fromfile=False)
+
+        #Load the Multi Agent PPO with single critic - discrete action space
+        self.worker = InitWorker(self.cfg["Worker"], fromfile=False)        
+
         #Create a list of 'ShipActions' to keep track of when to update individual policies (per ship (16))  
         self.policies = [self.ShipActions(self,idx) for idx in range(self.numShips)] 
     
-        #Keep track of the raw output from Universe so we can train world model
+        #Keep track of the raw output from Universe so we can train worldmodel VAE
         self.universes = []
 
         #Load pretrained world model autoencoder
-        self.worldmodel = WorldModel(self.cfg["Worldmodel"])
-        self.worldmodel.load_model(self.cfg["Worldmodel"]["modelfile"])
         #self.worldmodel = VAE.Load(self.cfg["Worldmodel"])
 
-        #Keep track of the output from world model so we can train goal autoencoder
+        #Create a new world model autoencoder
+        self.worldmodel = VAE.Create(self.cfg["Worldmodel"])
+
+        #Keep track of the output from world model so we can train goal VAE
         self.wmstates = []
 
         #Load pretrained goal autoencoder
-        self.goalmodel = VAE.Load(self.cfg["Goalmodel"])
-        self.goalstates = []
+        #self.goalmodel = VAE.Load(self.cfg["Goalmodel"])
 
-        #Load the Muli Agent PPO with double critic - continous action space
-        self.manager = InitManager(self.cfg["Manager"])
+        #Create a new goal autoencoder
+        self.goalmodel = VAE.Create(self.cfg["Goalmodel"]) 
 
-        #Load the Muli Agent PPO with single critic - discrete action space
-        self.worker = InitWorker(self.cfg["Worker"])        
+    def flattened_universe(self, x):
+        flattened = np.concatenate([x["image"].flatten(), x["step_embedding"].flatten(), x["scalars"].flatten(), x["one_hot_unit_id"].flatten(), x["one_hot_unit_energy"].flatten()])
+        flattened = torch.Tensor(flattened).to(self.worldmodel.device)
+        return flattened
 
     #This function is called for all steps and should compute the ship actions
     def act(self, step: int, obs, remainingOverageTime: int = 60):
+
+        step = obs['steps']
+
         #Get x_(t:t+h) | o_t from universe. (Director paper uses x for the observation)
-        x = self.u.predict(obs)
+        x = self.flattened_universe(self.u.predict(obs))
 
-        
-        # Get the current state of the game (state: (latent, action))
-        is_first = step <= 1
-        if is_first:
-            with torch.no_grad():
-                latent= self.worldmodel.dynamics.initial(batch_size=1)
-                # x = {key: torch.tensor(np.array(x[key]),dtype=torch.float32).view(1, 1, *x[key].shape[1:]).to(self.worldmodel.device) for key in x}
-                # print("First step", x.keys())
-                action = torch.zeros((16, 1), dtype=torch.float32).to(self.worldmodel.device)
-                self.state = (latent, action)
+        #Keep track of the universe for training
+        self.universes.append(x)
 
+        #Encode the universe into a latent space        
+        s = self.worldmodel.inference(x)
 
-        
         #Get positions & energy
         unitpos =  np.array(obs["units"]["position"][self.u.team_id]) 
-        unitene = np.array(obs["units"]["energy"][self.u.team_id])
-
-        
-        
-        # get state
-        s, latent = self.worldmodel.predict(x, self.state, is_first) #s: latent representation
-
-    
-             
+        unitene = np.array(obs["units"]["energy"][self.u.team_id])                  
         
         #Keep track of states for training (still torch.tensor @ device)
         if self.training:
@@ -103,30 +100,32 @@ class Director():
 
         #Check to see if we should update world model & goal model
         if self.training:
-            self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step ==100)
+
+            #self.worldmodel.add_to_memory(step, x, action, self.u.reward, step == 1, step ==100)
             if (step > 0 and step % self.updateFreq == 0):                
                 self.update()
 
             #Send data to WANDB
-            self.ww.report()
-            
-
-        #Concat into np array and return actions for env
-        self.state = (latent, action[:,0])
+            self.ww.report()            
 
         return action
     
     def update(self):
 
         #Update world model here       
-        world_model_matrics = self.worldmodel.train()
-        self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
+        #world_model_matrics = self.worldmodel.train()
+        #self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
         
+        #Update world model
+        wmloss = self.worldmodel.backwardFromList(self.universes)
+        self.running_averages.append("wmloss",wmloss)
+
         #Update goal model
-        l = self.goalmodel.backwardFromList(self.wmstates)        
+        goal_loss = self.goalmodel.backwardFromList(self.wmstates) 
+        self.running_averages.append("goalloss",goal_loss)
 
         del self.universes[:]
-        del self.wmstates[:]        
+        del self.wmstates[:]    
     
     def save(self):
         self.worldmodel.saveDescriptive(self.cfg["Worldmodel"]["modelfile"],"Worldmodel")
@@ -135,19 +134,26 @@ class Director():
         self.worker.saveDescriptive(self.cfg["Worker"]["modelfile"],"Worker")
 
     
-    class ShipActions():
-    
+    class ShipActions():  
+
         def __init__(self,parent,shipIndex):
 
             self.parent = parent
             self.shipIndex = shipIndex
             self.reset()
 
+        def dbg(self,step,*args):            
+            if self.shipIndex == 0:                
+                msg = " ".join(args)
+                #print(f"Step {step}: {msg}")             
+
         def reset(self):
             self.activelast = False
-            self.goal = None
+            self.goal = None            
 
         def missionComplete(self):
+
+            self.dbg("X","Mission complete") 
 
             if self.parent.training:
             
@@ -162,9 +168,9 @@ class Director():
                 #<Insert Manager dreaming here>
 
                 #Update mission control
-                l = self.parent.manager.update(self.shipIndex)
-                self.parent.ww.record("mgrloss",l)                
-
+                ml = self.parent.manager.update(self.shipIndex)
+                self.parent.ww.record("mgrloss",ml)                
+                self.parent.running_averages.append("mgrloss",ml)
             else:
                 self.parent.manager.bufferList[self.shipIndex].clear()
 
@@ -202,8 +208,8 @@ class Director():
 
         def pickShipAction(self,x,y,e,step):
 
-            #Update (extrinsic) cumulative reward
-            self.cumuativeExtrinsic += self.parent.u.thiscore
+            #Update (extrinsic) cumulative reward 
+            self.cumuativeExtrinsic += self.parent.u.thiscore # <- this is the reward from the universe: the number of relics collected in this timestep
                         
             #Decrement goal timer
             self.goalclock-=1
@@ -221,18 +227,21 @@ class Director():
             ])
             
             #Get the current buffer length for this ship
-            l = self.parent.worker.bufferList[self.shipIndex].length()  
+            l = self.parent.worker.bufferList[self.shipIndex].length()
 
             if self.parent.training:              
 
                 #Check if it is update o'clock: timeout or last step in match
-                if (l > 0 and l % self.parent.updateFreq == 0) or (step == 100 and l > 0):
+                if l > 0 and (l % self.parent.updateFreq == 0 or step == 100):
 
                     #<Insert Worker dreaming here>
-
+                    
                     #Update worker PPO
-                    l = self.parent.worker.update(self.shipIndex)
-                    self.parent.ww.record("wrkloss",l)        
+                    wl = self.parent.worker.update(self.shipIndex)
+                    self.parent.ww.record("wrkloss",wl)
+                    self.parent.running_averages.append("wrkloss",wl)
+
+                    self.dbg(step,"Worker updated")
 
                 if step == 100:
                     self.missionComplete()
@@ -251,40 +260,58 @@ class Director():
             return (action, zapX, zapY)            
 
         def act(self,x,y,e,step):
-                
+                                
+                tmp = self.parent.worker.bufferList[self.shipIndex].tmplength()
+                self.dbg(step,tmp)
+
                 #Is ship in play this time step?
-                active = x != -1 and y != -1                    
+                active = x != -1 and y != -1
+                #if self.shipIndex == 0 and step == 23:
+                #    active = False                    
+                #    self.dbg(step,"OVERRIDE")
+                self.dbg(step,"Active last =",str(self.activelast),"Active =",str(active))
 
                 #If ship was removed from map... 
-                if self.activelast and not active:
+                if self.activelast and not active:                   
 
                     #...we end the mission
-                    self.missionComplete()
+                    self.missionComplete()                    
 
                     #and reward ship with notification that this was terminal
                     self.rewardShip(1)
+                    self.dbg(step,"Rewarded with terminal")                    
 
                 #Ship was spawned.
-                elif not self.activelast and active:                    
+                elif not self.activelast and active:                   
                     self.setGoal()
+                    self.dbg(step,"New goal picked")
 
                 #Alive and kicking....
                 elif self.activelast and active:
                     
                     #Reward ship notifying it is not terminal
                     self.rewardShip(0)
-
+                    self.dbg(step,"Rewarded with non-terminal")
                 #Active ships must take an action
                 if active:
-
                     action = self.pickShipAction(x,y,e.item(),step)
-                
+                    self.dbg(step,"Action picked")
                 #For inactive ships we return zeros
                 else:
-                    action = (0,0,0)       
+                    action = (0,0,0)
                 
                 #Update active state
-                self.activelast = active
+                if step != 100:
+                    self.activelast = active
+                else:
+                    self.parent.worker.bufferList[self.shipIndex].clear()
+                    
+                tmp = self.parent.worker.bufferList[self.shipIndex].tmplength()
+                self.dbg(step,tmp)
+                self.dbg(step,"")
+                
+
+
 
                 #Return action picked by ship
                 return action
