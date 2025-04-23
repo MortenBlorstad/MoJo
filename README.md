@@ -27,7 +27,6 @@ git clone https://github.com/MortenBlorstad/MoJo.git
 
 3. Train the agent:
 ```
-cd MoJo
 python hierarchical/trainer.py
 ```
 

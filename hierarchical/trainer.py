@@ -18,7 +18,7 @@ sys.path.insert(0, mojo_path)  # Ensure it is searched first
 
 from hierarchical.config import Config
 from base_agent import Agent
-from director import Director
+from hierarchical.director.director import Director
 
 from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 
