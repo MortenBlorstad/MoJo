@@ -168,7 +168,7 @@ class Director():
             self.goal = None
 
         def missionComplete(self):
-
+            print("Mission complete")
             if self.parent.training:
             
                 #Compute extrinsic & exploration rewards
@@ -183,8 +183,9 @@ class Director():
 
                 #Update mission control
                 l = self.parent.manager.update(self.shipIndex)
-                self.parent.ww.record("mgrloss",l)                
-
+                self.parent.ww.record("mgrloss", l)  
+                self.parent.ww._WW_run.log({"Manager loss": l})              
+                print("Manager loss", l)
             else:
                 self.parent.manager.bufferList[self.shipIndex].clear()
 

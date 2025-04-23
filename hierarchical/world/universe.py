@@ -500,7 +500,7 @@ class Universe():
         position_penalty = np.where(found, position_penalty, 0)
 
         
-        reward = np.expand_dims(0.2*points_ratio + 0.5*this_points_ratio + exploit_reward +
+        reward = np.expand_dims(0.2*points_ratio + 0.2*this_points_ratio + exploit_reward +
                                 explore_reward + point_factor*(self.thiscore-1) +
                                 stacking_in_pointzone_penalty + position_penalty, axis=0)
         #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)

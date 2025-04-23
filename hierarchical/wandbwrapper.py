@@ -20,7 +20,6 @@ class WandbWrapper():
             )
             self._WW_run = wandb.init()
             
-
     #Record loss value
     def record(self, propertyName, propertyValue):
         if self._WW_usewandb:

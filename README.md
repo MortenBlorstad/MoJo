@@ -5,10 +5,39 @@ The full game rules/specs can be found [here](https://github.com/Lux-AI-Challeng
 
 ## How to use
 
-*TODO*
-- [ ] Make a description of how to train agents 
-- [ ] Make a description of how to run agents
-- [ ] Make a description of how to submit agents 
+1. Install Lux AI season 3:
+```
+git clone https://github.com/Lux-AI-Challenge/Lux-Design-S3/
+pip install -e Lux-Design-S3/src
+```
+verify your installation
+```
+luxai-s3 path/to/bot/main.py path/to/bot/main.py
+```
+
+To install jax with GPU/TPU support you can follow the instructions [here](https://docs.jax.dev/en/latest/installation.html).
+
+2. Get our code:
+
+
+```
+cd Lux-Design-S3
+git clone https://github.com/MortenBlorstad/MoJo.git
+```
+
+3. Train the agent:
+```
+cd MoJo
+python hierarchical/trainer.py
+```
+
+## Code structure:
+
+- `hierarchical/` contains the code for the hierarchical agent.
+- `hierarchical/world_model/` contains the code for the world model, HRSSM. (Learning Latent Dynamic Robust Representations for World Models, Sun et al.)
+- `hierarchical/director.py` contains the code for the hierarchical agent, Director. (Deep Hierarchical Planning from Pixels, Hafner et al.) 
+- `hierarchical/agents/multiagentmanagerppo.py` contains the code for manager policy components of the Director. 
+- `hierarchical/agents/multiagentworkerppo.py` contains the code for the worker policy components of the Director.
 
 
 ## Team MoJo: 

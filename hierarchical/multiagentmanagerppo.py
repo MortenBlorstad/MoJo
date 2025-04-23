@@ -259,7 +259,6 @@ class MultiAgentManagerPPO:
 
         #Clear buffer
         self.bufferList[worker_id].clear()
-
         return loss
     
     def save(self, checkpoint_path):
