@@ -488,7 +488,7 @@ class Universe():
         #     75%	        25%	            0.0821
         #     100%	        0%	            0.0067
         #print("relic_not_found", tiles_unobserved_penalty*(match_steps<50 or relic_not_found) )
-        explore_reward = 0.2*distance_reward + tiles_unobserved_penalty + distance_from_arch
+        explore_reward = 0.1*distance_reward + 0.2*tiles_unobserved_penalty + distance_from_arch
         explore_reward = np.where(in_points_zone,-0.01,  explore_reward) 
        
        
