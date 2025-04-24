@@ -81,7 +81,7 @@ class MgrRolloutBuffer(BufferBase):
         self.extrinsic_rewards.append(r_extr)
         self.exploration_rewards.append(r_expl)
 
-#Code from papers implementation found at https://github.com/danijar/director
+#Code from paper implementation found at https://github.com/danijar/director
 #Edited to remove tensorflow dependency
 class Normalize:
 

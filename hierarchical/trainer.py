@@ -25,7 +25,7 @@ env = LuxAIS3GymEnv( numpy_output = True)
 if cfg['logepisodes']:
     env = RecordEpisode(env, save_dir=cfg['episodelogdir'])
 
-num_games = 3
+num_games = 1200
 
 #Get the environment configuration
 _, info = env.reset()
@@ -56,7 +56,7 @@ for game in range(num_games):
         done = step == 100
 
     #Print running averages
-    print(agents[0].running_averages)
+    print("Game",game+1,":\t",agents[0].running_averages)
 
     if game > 0 and game % cfg['modelSaveFrequency'] == 0:
         agents[0].save()

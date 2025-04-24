@@ -82,7 +82,15 @@ class RunningAverages:
             self.goalloss.append(value)
     
     def __str__(self):
-        return f"Mgr loss: {np.mean(self.mgrloss)}\tWrk loss: {np.mean(self.wrkloss)}\tWmloss: {np.mean(self.wmloss)}\tGoalloss: {np.mean(self.goalloss)}"
+
+        r = 4
+
+        mgrloss = np.round(np.mean(self.mgrloss),r)
+        wrkloss = np.round(np.mean(self.wrkloss),r)
+        wmloss = np.round(np.mean(self.wmloss),r)
+        goalloss = np.round(np.mean(self.goalloss),r)
+
+        return f"Mgr loss: {mgrloss}\tWrk loss: {wrkloss}\tWmloss: {wmloss}\tGoalloss: {goalloss}"
 
 
 def InitWorker(cfg, fromfile = True):

@@ -83,7 +83,7 @@ class Config():
                     "hid1_dim"      : 1024,         #Hidden 1
                     "hid2_dim"      : 512,          #Hidden 2
                     "latent_dim"    : 128,          #Wordlmode latent space (1024 in paper)
-                    "lr"            : 1e-3,          #Learning rate for World Model VAE
+                    "lr"            : 1e-3,         #Learning rate for World Model VAE
                     "beta"          : 1.0           #Beta for WorldModel VAE
                 },                                
 
