@@ -15,7 +15,7 @@ sys.path.insert(0, mojo_path)  # Ensure it is searched first
 
 from base_agent import Agent
 from luxai_s3.wrappers import LuxAIS3GymEnv
-from world.universe import Universe
+from universe.universe import Universe
 from hierarchical.config import Config
 
 num_games = 200

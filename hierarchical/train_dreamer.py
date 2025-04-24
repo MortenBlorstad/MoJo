@@ -21,7 +21,7 @@ from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 
 #env = RecordEpisode(env, save_dir="MoJo/trainer/recorded_episodes")
 
-from world.universe import Universe
+from universe.universe import Universe
 from world_model.world_model import WorldModel
 from hierarchical.dreamer.dreamer import Dreamer    
 

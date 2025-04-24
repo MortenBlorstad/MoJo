@@ -4,7 +4,7 @@ import numpy as np
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from world.universe import Universe
+from universe.universe import Universe
 from hierarchical.config import Config
 from hierarchical.director.utils import getZapCoordsOnly, InitWorker, InitManager, RunningAverages
 from hierarchical.director.vae import VAE

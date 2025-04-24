@@ -1,0 +1,16 @@
+eps_clip: 0.2
+gamma: 0.99
+action_dim: 6
+K_epochs: 4
+action_std: 0.5
+has_continuous_action_space: false
+image_size: [15, 24, 24]
+scaler_dim: 6
+step_embedding_dim: 64
+action_dim : 6
+num_units: 16
+num_mlp_units: 64
+one_hot_pos_dim: 576
+update_timestep : 5 #50
+lr_actor: 0.001
+lr_critic: 0.00003
