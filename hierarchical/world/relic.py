@@ -134,8 +134,9 @@ class Relics(base_component):
                                 
                 #Number of possible tiles for the points scored > 1. Keep track of theese ambiguous observations                    
                 else:
-                    self.eqset.add([shipPos.tolist(),points])
-                    flagCompute = True #Notify recompute is required
+                    if len(shipPos) > 0:  # Only add equation if we have positions to consider
+                        self.eqset.add([shipPos.tolist(),points])
+                        flagCompute = True #Notify recompute is required
             else:
                 #All points have been accounted for, and there are tiles left in the observation. These must be empty.
                 if self.empty(shipPos):        #Add to collection

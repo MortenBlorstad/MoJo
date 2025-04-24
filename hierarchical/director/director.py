@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from world.universe import Universe
 from hierarchical.config import Config
-from hierarchical.director.utils import getZapCoordsOnly, InitWorker, InitManager
+from hierarchical.director.utils import getZapCoordsOnly, InitWorker, InitManager, RunningAverages
 from hierarchical.director.vae import VAE
 from hierarchical.director.directorlossfuncs import MaxCosineNP as MaxCosine, ExplorationReward
 from world_model.world_model import WorldModel
@@ -36,7 +36,10 @@ class Director():
             self.ww.wrkloss = []     #Add worker loss list (use average)     
            
             #------------------------------------------------------------------        
-                
+
+        #Keep track of running averages
+        self.running_averages = RunningAverages()
+
         #Create a list of 'ShipActions' to keep track of when to update individual policies (per ship (16))  
         self.policies = [self.ShipActions(self,idx) for idx in range(self.numShips)] 
     
@@ -52,7 +55,7 @@ class Director():
         #Keep track of the output from world model so we can train goal autoencoder
         self.wmstates = []
 
-        #Load pretrained goal autoencoderf
+        #init goal autoencoderf and load weights if exists
         self.goalmodel = VAE.Load(self.cfg["Goalmodel"])
         self.goalstates = []
 
@@ -134,8 +137,9 @@ class Director():
             self.ww.record("wmloss",world_model_matrics)    #<--- Merges Metrics dictionary with other metrics for WANDB
         
         #Update goal model
-        l = self.goalmodel.backwardFromList(self.wmstates)        
-        self.ww.record("goalloss",l)    
+        goal_loss = self.goalmodel.backwardFromList(self.wmstates)        
+        self.ww.record("goalloss",goal_loss)
+        self.running_averages.append("goalloss",goal_loss)    
 
         del self.universes[:]
         del self.wmstates[:]        
@@ -183,9 +187,10 @@ class Director():
                 #<Insert Manager dreaming here>
 
                 #Update mission control
-                l = self.parent.manager.update(self.shipIndex)
-                self.parent.ww.record("mgrloss", l)  
-                self.parent.ww._WW_run.log({"Manager loss": l})              
+                mgr_loss = self.parent.manager.update(self.shipIndex)
+                self.parent.ww.record("mgrloss", mgr_loss)
+                self.parent.running_averages.append("mgrloss",mgr_loss)  
+                self.parent.ww._WW_run.log({"Manager loss": mgr_loss})              
             else:
                 self.parent.manager.bufferList[self.shipIndex].clear()
 
@@ -227,7 +232,7 @@ class Director():
         def pickShipAction(self,x,y,e,step):
 
             #Update (extrinsic) cumulative reward
-            self.cumuativeExtrinsic += self.parent.u.reward[0,self.shipIndex] #self.parent.u.thiscore # (self.parent.u.thiscore/(step+1))-1 
+            self.cumuativeExtrinsic += self.parent.u.reward[0,self.shipIndex] # this unit's reward from universe
                         
             #Decrement goal timer
             self.goalclock-=1
@@ -258,11 +263,13 @@ class Director():
                     #<Insert Worker dreaming here>
 
                     #Update worker PPO
-                    l = self.parent.worker.update(self.shipIndex)
-                    self.parent.ww.record("wrkloss",l)        
+                    wkr_loss = self.parent.worker.update(self.shipIndex)
+                    self.parent.ww.record("wrkloss",wkr_loss)
+                    self.parent.running_averages.append("wrkloss",wkr_loss)        
 
                 if step == 100:
                     self.missionComplete()
+                    self.reset()
             else:
                 self.parent.worker.bufferList[self.shipIndex].clear()
 
@@ -313,9 +320,11 @@ class Director():
                     action = (0,0,0)       
                 
                 #Update active state
-                #print("id", self.shipIndex,"step", step,  self.activelast, active, e > 0,  x != -1 and y != -1, len(self.parent.worker.bufferList[self.shipIndex].rewards))
-                self.activelast = active
-                
+                if step != 100:
+                    self.activelast = active
+                else:
+                    self.parent.worker.bufferList[self.shipIndex].clear()
+                    
                 
                 #Return action picked by ship
                 return action

@@ -1,24 +1,24 @@
 import torch
 import torch.nn as nn
 from torch.optim import Adam
-from torch.nn import functional as F
 import os
 
 class VAE(nn.Module):
 
-    def __init__(self, device, input_dim, hid1_dim, hid2_dim, latent_dim, lr):
+    def __init__(self, device, input_dim, hid1_dim, hid2_dim, latent_dim, lr, beta=1.0):
         super(VAE, self).__init__()
 
         self.view_dim = input_dim
         self.device = device
         self.latent_dim = latent_dim
+        self.beta = beta  # Beta parameter for beta-VAE
         
         # encoder
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hid1_dim),            
             torch.nn.PReLU(),
             nn.Linear(hid1_dim, hid2_dim),            
-            torch.nn.Tanh()
+            torch.nn.PReLU()
             )
         
         # latent mean and variance 
@@ -59,43 +59,38 @@ class VAE(nn.Module):
             mean, _ = self.encode(torch.Tensor(x).to(self.device))
             return mean
         
+    def inference(self, x):
+        with torch.no_grad():
+            mean, _ = self.encode(x)
+            return mean
+        
     def forward(self, x):
         mean, log_var = self.encode(x)
         z = self.reparameterization(mean, torch.exp(0.5 * log_var)) 
         x_hat = self.decode(z)  
         return x_hat, mean, log_var    
 
-    def norm_goal_loss(self, f_x1s, f_x2s, mean, log_var, reduction="mean"):
-        f_x1 = F.normalize(
-            f_x1s.float(), p=2.0, dim=-1, eps=1e-3
-        )  # (bs*(1+jumps), 512)
-        f_x2 = F.normalize(f_x2s.float(), p=2.0, dim=-1, eps=1e-3)
-        loss = F.mse_loss(f_x1, f_x2, reduction="none").sum(-1)
-        loss = loss.mean(0) if reduction == "mean" else loss
-        kld_loss = - 0.5 * torch.sum(1+ log_var - mean.pow(2) - log_var.exp())
-        return loss + kld_loss
-
     def goal_loss(self, x, x_hat, mean, log_var):
-        
+        # Reconstruction loss
         mse_loss = nn.functional.mse_loss(x_hat, x, reduction='sum')
-        kld_loss = - 0.5 * torch.sum(1+ log_var - mean.pow(2) - log_var.exp())
+        
+        # KL divergence with beta scaling
+        kld_loss = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
+        kld_loss = self.beta * kld_loss  # Scale KL divergence by beta
         
         return mse_loss + kld_loss
 
-    
     def backwardFromList(self,x):
         return self.backward(torch.stack(x, dim=0))
     
-
     def backward(self,x):
-            
         #View [BATCH,1,25,24,24] as [BATCH, 14400]
         x = x.view(-1, self.view_dim).to(self.device)
 
         self.optimizer.zero_grad()
 
         x_hat, mean, log_var = self(x)        
-        loss = self.norm_goal_loss(x, x_hat, mean, log_var)
+        loss = self.goal_loss(x, x_hat, mean, log_var)
         
         rval = loss.item()
         
@@ -104,7 +99,6 @@ class VAE(nn.Module):
 
         return rval
         
-    
     def save(self, path):        
         torch.save(self.state_dict(), path)
     
@@ -118,7 +112,6 @@ class VAE(nn.Module):
 
     @staticmethod
     def Create(cfg):
-
         device = VAE.__Device()
 
         return VAE(
@@ -127,12 +120,12 @@ class VAE(nn.Module):
             cfg['hid1_dim'],
             cfg['hid2_dim'],
             cfg['latent_dim'],
-            float(cfg['lr'])       
+            cfg['lr'],
+            beta=cfg['beta']        
         ).to(device)
 
     @staticmethod
     def Load(cfg, EVAL = False):  
-
         model = VAE.Create(cfg)
         if os.path.exists(cfg['modelfile']):
             model.load_state_dict(torch.load(cfg['modelfile'], weights_only=True))

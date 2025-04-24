@@ -83,7 +83,8 @@ class Config():
                     "hid1_dim"      : 256,          #Hidden 1
                     "hid2_dim"      : 128,          #Hidden 2
                     "latent_dim"    : 8,            #Goalmodel latent space is 8 in the paper
-                    "lr"            : 0.00001          #Learning rate for Goal VAE
+                    "lr"            : 1e-3,          #Learning rate for Goal VAE
+                    "beta"          : 1.0           #Beta for Goal VAE
                 },                
                 
                 "Manager" : {
@@ -97,7 +98,8 @@ class Config():
                     "K_epochs"      : 4,            #PPO epochs
                     "action_std"    : 0.5,          #Initial action std                    
                     "cntns_actn_spc": True,         #Use contionous action space?
-                    "behaviors"     : 16            #Number of behaviors workers. Should match max num ships
+                    "behaviors"     : 16,            #Number of behaviors workers. Should match max num ships'
+                    "isWorker"      : False         #Indicate hierarchy level to MultiAgentPPO
                 },
 
                 "Worker" : {
@@ -111,7 +113,8 @@ class Config():
                     "K_epochs"      : 4,            #PPO epochs
                     "action_std"    : 0.5,          #Initial action std
                     "cntns_actn_spc": False,        #Use contionous action space?
-                    "behaviors"     : 16            #Number of behaviors workers. Should match max num ships                    
+                    "behaviors"     : 16,            #Number of behaviors workers. Should match max num ships
+                    "isWorker"      : True          #Indicate hierarchy level to MultiAgentPPO                   
                 }       
             }
     }

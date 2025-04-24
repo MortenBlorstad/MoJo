@@ -4,9 +4,10 @@ from os import listdir
 from os.path import isfile, join
 import torch
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from hierarchical.director.multiagentworkerppo import MultiAgentWorkerPPO
-from hierarchical.director.multiagentmanagerppo import MultiAgentManagerPPO
+from hierarchical.director.multiagentppo import MultiAgentPPO
 from hierarchical.director.vae import VAE
+from collections import deque
+import numpy as np
 
 import jax.numpy as jnp
 
@@ -58,9 +59,35 @@ def getZapCoordsOnly(x, y, zaprange, probmap):
 def getfiles(mypath):
     return [join(mypath, f) for f in listdir(mypath) if isfile(join(mypath, f))]
 
+
+#Running averages for training
+class RunningAverages:
+
+    def __init__(self, window_size=10):
+        
+        self.mgrloss = deque(maxlen=window_size)
+        self.wrkloss = deque(maxlen=window_size)
+        self.wmloss = deque(maxlen=window_size)
+        self.goalloss = deque(maxlen=window_size)
+
+    def append(self, losstype, value):        
+
+        if losstype == "mgrloss":
+            self.mgrloss.append(value)
+        elif losstype == "wrkloss":
+            self.wrkloss.append(value)
+        elif losstype == "wmloss":
+            self.wmloss.append(value)
+        elif losstype == "goalloss":
+            self.goalloss.append(value)
+    
+    def __str__(self):
+        return f"Mgr loss: {np.mean(self.mgrloss)}\tWrk loss: {np.mean(self.wrkloss)}\tWmloss: {np.mean(self.wmloss)}\tGoalloss: {np.mean(self.goalloss)}"
+
+
 def InitWorker(cfg, fromfile = True):
 
-    wrk = MultiAgentWorkerPPO(
+    wrk = MultiAgentPPO(
         cfg['state_dim'],
         cfg['action_dim'],
         float(cfg['lr_actor']), #WTF!!!
@@ -70,7 +97,8 @@ def InitWorker(cfg, fromfile = True):
         cfg['eps_clip'],
         cfg['cntns_actn_spc'],
         cfg['action_std'],
-        cfg['behaviors']
+        cfg['behaviors'],
+        cfg['isWorker']
     )
     if fromfile and os.path.exists(cfg['modelfile']):
         wrk.load(cfg['modelfile'])
@@ -78,7 +106,7 @@ def InitWorker(cfg, fromfile = True):
 
 def InitManager(cfg, fromfile = True):
 
-    mgr = MultiAgentManagerPPO(
+    mgr = MultiAgentPPO(
         cfg['state_dim'],
         cfg['action_dim'],
         float(cfg['lr_actor']), #WTF!!!
@@ -88,7 +116,8 @@ def InitManager(cfg, fromfile = True):
         cfg['eps_clip'],
         cfg['cntns_actn_spc'],
         cfg['action_std'],
-        cfg['behaviors']
+        cfg['behaviors'],
+        cfg['isWorker']
     )
     if fromfile and os.path.exists(cfg['modelfile']):
         mgr.load(cfg['modelfile'])
