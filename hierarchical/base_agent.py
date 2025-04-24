@@ -1,3 +1,4 @@
+#This is the base agent copied from the original code (part of LUX AI competition)
 import sys
 import numpy as np
 import sys
