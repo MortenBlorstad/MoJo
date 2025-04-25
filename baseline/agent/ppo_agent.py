@@ -33,26 +33,7 @@ class PPOAgent:
     def __init__(self, player, env_cfg, config):
         self.player = player
         self.universe = Universe(player, env_cfg, horizont=1)
-        from .networks.ppo import PPO
-
-        # eps_clip = config['eps_clip']          # clip parameter for PPO
-        # gamma = config['gamma']            # discount factor
-
-        # lr_actor = config['lr_actor']      # learning rate for actor network
-        # lr_critic = config['lr_critic']     # learning rate for critic network
-
-        
-        
-        # lr_actor = config['lr_actor']
-        # lr_critic = config['lr_critic']
-        # state_dim = config.get('state_dim', None)  # Can be inferred/set elsewhere
-        # action_dim = config['action_dim']
-        # K_epochs = config['K_epochs']
-        # action_std = config['action_std']
-        # has_continuous_action_space = config['has_continuous_action_space']
-        # image_size = tuple(config['image_size'])
-        #####################################################
-        
+        from .networks.ppo import PPO        
         self.ppo_agent = PPO(config)
         
     def append_to_buffer(self, done):

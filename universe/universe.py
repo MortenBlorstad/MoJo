@@ -309,9 +309,6 @@ def compute_distances_from_map_center(unit_positions, grid_size=(24, 24)):
     return manhattan_distances/(center_x + center_y - 2) # Normalize by maximum distance 
 
 
-
-
-
 def get_closest_relic_distance(ship_positions, relic_nodes, max_distance=12):
     """
     Computes the minimum distance from each ship to the closest relic.
@@ -435,77 +432,15 @@ class Universe():
         
 
 
-    def get_reward(self,state:State, unexplored_count: int) -> float:
-        """Calculate the reward for the current step.
-        Args:
-            a (int): The points of the team
-            b (int): The points of the opponent team"""
-        match_steps = state.match_steps
-        steps = state.steps
-
-        #close_to_start = (np.sqrt(23**2 +23**2) - np.linalg.norm(state.p0ShipPos_unfiltered, axis=1)) / np.sqrt(23**2 +23**2) # (16x1)
-        close_to_start = penalty_for_proximity(state.p0ShipPos_unfiltered, grid_size=23)
-        
+    def get_reward(self,state:State) -> np.ndarray:
+        """
+        Returns a (1, 16) array with 1 for each unit in a relic zone if the team receives points; else 0.
+        """
         in_points_zone = is_unit_within_radius(state.relic_nodes, state.p0ShipPos_unfiltered, radius = 5)
 
-        #distance_from_center = compute_distances_from_map_center(state.p0ShipPos_unfiltered)
-
-        distance_from_arch = -compute_distances_to_arch(state.p0ShipPos_unfiltered, self.arc_positions)
-
-        a, b = self.teampoints, self.opponent_teampoints
-        points_ratio = (a - b) / (a + b + 1)
-
-        a, b = self.thiscore, self.opponent_thiscore
-        this_points_ratio = (a - b) / (a + b + 1)
-
-        n_units = self.unit_mask.sum()
-        n_units_inplay = self.units_inplay.sum()
-        # unit_score = (n_units - n_units_inplay) / (n_units + 1)
-        # unexplored_ratio = unexplored_count/(24*24) 
-        num_in_points_zone = in_points_zone.sum()
-        point_factor = np.where(in_points_zone, 1/max(num_in_points_zone, 1), 0.01/max(16-num_in_points_zone,1 ))
-
-        found = np.any(state.relic_nodes == 1)
-
-        
-        factor = 0.2*(100/(match_steps**1.333+505))
-
-        #distance_reward = (distance_from_center + close_to_start) * factor # distance_from_arch*factor 
-        distance_reward = -close_to_start
-
-        #distance_reward += distance_from_arch * factor
-
-        stacking_in_pointzone_penalty = np.zeros(16)
-        stacking_in_pointzone_penalty = -calculate_stacking_penalty(in_points_zone, state.player_units_count, state.p0ShipPos_unfiltered, stacking_in_pointzone_penalty)
-
-        unobserved_fraction =  ((1-self.observed_map.ravel()).sum() / (24*24))
-        scaling_factor = 5 # scaling_factor = 5
-        tiles_unobserved_penalty = -np.exp(-scaling_factor * (1 - unobserved_fraction)) 
-        # % Observed	% Unobserved	Reward (Scaling = 5)
-        #     0%	        100%	        1.0000
-        #     25%	        75%	            0.7788
-        #     50%	        50%	            0.3679
-        #     75%	        25%	            0.0821
-        #     100%	        0%	            0.0067
-        #print("relic_not_found", tiles_unobserved_penalty*(match_steps<50 or relic_not_found) )
-        explore_reward = 0.1*distance_reward + 0.2*tiles_unobserved_penalty + distance_from_arch
-        explore_reward = np.where(in_points_zone,-0.01,  explore_reward) 
-       
-       
-        distance_to_closest_relic = -get_closest_relic_distance(state.p0ShipPos_unfiltered, state.relic_nodes, max_distance=12)
-        exploit_reward = np.where(found, distance_to_closest_relic, 0)
-        exploit_reward = np.where(in_points_zone, exploit_reward*0.1, exploit_reward)
-
-        position_penalty = -compute_softmax_penalty(self.relic_heatmap, state.p0ShipPos_unfiltered)
-        position_penalty = np.where(found, position_penalty, 0)
-
-        
-        reward = np.expand_dims(0.2*points_ratio + 0.2*this_points_ratio + exploit_reward +
-                                explore_reward + point_factor*(self.thiscore-1) +
-                                stacking_in_pointzone_penalty + position_penalty, axis=0)
-        #reward = np.expand_dims(points_ratio*(match_steps>30) + 0.2*this_points_ratio*(match_steps>50) + point_factor*self.thiscore , axis=0)
-        #reward = np.expand_dims(points_ratio + 0.2*this_points_ratio + point_factor*self.thiscore - distance_reward - relic_found * 0.3 + stacking_in_pointzone_penalty, axis=0) 
-        
+        point_factor = np.where(in_points_zone, 1, 0)
+        got_points = np.where(self.thiscore > 0, 1, 0)
+        reward = np.expand_dims(point_factor*got_points, axis=0)
         return reward
     
 
@@ -586,9 +521,9 @@ class Universe():
 
         #OBS: get unobserved_terrain before calling nan_to_num on nebulas & astr0oids. (nan == unobserved_terrain)        
         unobserved_terrain = np.expand_dims(get_unobserved_terrain(nebulas,astroids)[0],axis=0) # dont need to horizon here.
-        unexplored_count = unobserved_terrain.sum().item() # number of unexplored tiles
+      
               
-        self.reward  = self.get_reward(state, unexplored_count)     
+        self.reward  = self.get_reward(state)     
 
         #Create list of predictions
         predictions = [jnp.nan_to_num(nebulas), jnp.nan_to_num(astroids), unobserved_terrain]
@@ -619,23 +554,9 @@ class Universe():
         self.distance_matrix, self.padded_distance_matrix = compute_distance_matrix(state.p0ShipPos_unfiltered)
         predictions.append(np.expand_dims(self.padded_distance_matrix, axis=0))
 
-        # ship energy
-        #predictions.append(state.player_sparse_energy_map)      
         
-        #predictions.append(state.opponent_sparse_energy_map)  
-        
-        #Add the scalar parameters, encoded into a 24x24 grid        
-        # predictions.append(
-        #      self.scalar.Encode(
-        #         unit_move_cost = 2,
-        #         nebula_tile_drift_speed=0.05,
-        #         unit_sap_cost = 50                
-        #     )
-        # )
-
 
         #Add positional encoding
-
         step_embedding = np.expand_dims(state.step_embedding, axis=0) # Expand to batch shape
         
 
@@ -657,30 +578,3 @@ class Universe():
         state = {"image": stacked_array, "step_embedding": step_embedding, "scalars": scalers, "one_hot_unit_id": one_hot_unit_id, "one_hot_unit_energy": one_hot_unit_energy} 
         return state  
 
-
-        
-
-#Test function for Jørgen
-def jorgen():
-
-    print("Running Jørgens tests")
-
-    #Fix a seed for testing. 
-    seed = 223344
-
-    #Get initial observation
-    step, player, obs, cfg, timeleft = getObservation(seed,0)
-    
-    #Create a fixed seed universe
-    u = Universe(player,obs,cfg,horizont=3, seed=seed)
-
-    for i in range(1,2):
-        
-        #Get another observation
-        _, _, obs, _, timeleft = getObservation(seed,i)        
-
-        #Test universe prediction
-        u.predict(obs)
-
-if __name__ == "__main__":
-    jorgen()

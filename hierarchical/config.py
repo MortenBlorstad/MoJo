@@ -83,7 +83,7 @@ class Config():
                     "hid1_dim"      : 256,          #Hidden 1
                     "hid2_dim"      : 128,          #Hidden 2
                     "latent_dim"    : 8,            #Goalmodel latent space is 8 in the paper
-                    "lr"            : 1e-3,          #Learning rate for Goal VAE
+                    "lr"            : 1e-6,          #Learning rate for Goal VAE
                     "beta"          : 1.0           #Beta for Goal VAE
                 },                
                 

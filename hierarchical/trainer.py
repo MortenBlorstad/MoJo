@@ -29,6 +29,8 @@ if cfg['logepisodes']:
 
 num_games = 1000
 games_won = 0
+total_match_count = 0 # counter for number of matches played
+np.random.seed(0)
 for game in range(num_games+1):
     game_step = 0
     match_number = 0
@@ -65,7 +67,14 @@ for game in range(num_games+1):
             player_0_score, player_1_score = obs["player_0"]["team_points"]
                 
             match_steps += 1
-        
+
+        total_match_count += 1
+        agents[0].ww._WW_run.log({
+            "total_match_count": total_match_count,
+            "player_0_score": agents[0].u.teampoints,
+            "player_1_score": agents[0].u.opponent_teampoints
+        })
+
     if game > 0 and game % cfg['modelSaveFrequency'] == 0:
         agents[0].save()
 

@@ -23,7 +23,7 @@ def MaxCosine(goal, state):
     m = torch.max(goal_normed,state_normed)
     m = torch.max(m,eps)
 
-    return torch.sum(goal/m) * torch.sum(state/m) 
+    return torch.mean(goal/m) * torch.mean(state/m) 
 
 #NP version of the same function
 def MaxCosineNP(goal, state):
@@ -38,7 +38,7 @@ def MaxCosineNP(goal, state):
     m = max(goal_normed,state_normed)
     m = max(m,eps)
     
-    return np.sum(goal/m) * np.sum(state/m) 
+    return np.mean(goal/m) * np.mean(state/m) 
 
 
 #Implementation of exploration reward from paper

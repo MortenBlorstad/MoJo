@@ -43,14 +43,15 @@ def getMapRange(position, zaprange, probmap):
 #Get the coordinates of the tile with the highest probability of enemy ship given a zap range and a ship location
 def getZapCoords(position, zaprange, probmap):
     filteredMap, x_l, y_l = getMapRange(position, zaprange, probmap)    
-    x,y = divmod(int(jnp.argmax(filteredMap)),filteredMap.shape[0])
+    x_local,y_local = divmod(int(jnp.argmax(filteredMap)),filteredMap.shape[0])
     
-    #Add back global indexing
-    x+=x_l 
-    y+=y_l
+    
+    # Convert to global coordinates
+    x_global = min(max(0, x_local + x_l), probmap.shape[0] - 1)
+    y_global = min(max(0, y_local + y_l), probmap.shape[1] - 1)
 
     #Return target coordinates
-    return (x,y),probmap[(x,y)]
+    return (x_global,y_global),probmap[(x_global,y_global)]
 
 def getZapCoordsOnly(x, y, zaprange, probmap):
     pos, probmap = getZapCoords((x,y), zaprange, probmap)

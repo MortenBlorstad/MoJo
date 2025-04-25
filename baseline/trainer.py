@@ -16,6 +16,11 @@ import jax.numpy as jnp
 import flax
 import yaml
 
+
+import wandb
+
+
+
 # Get the absolute path of the MoJo directory
 mojo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, mojo_path)  # Ensure it is searched first
@@ -34,7 +39,7 @@ with open('MoJo/baseline/config.yaml', 'r') as f:
 
 env = LuxAIS3GymEnv( numpy_output = True)
 
-env = RecordEpisode(env, save_dir="MoJo/baseline/recorded_episodes")
+#env = RecordEpisode(env, save_dir="MoJo/baseline/recorded_episodes")
 
 terminated = {'player_0': jnp.array(False), 'player_1': jnp.array(False)}
 print("============================================================================================")
@@ -56,16 +61,24 @@ start_time = datetime.now().replace(microsecond=0)
 print("Started training at (GMT) : ", start_time)
 
 
-
+# Initialize wandb run
+wandb.init(
+    project="baseline",  # change this to your project name
+    name=f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+    config=config,
+)
 
 
 print("============================================================================================")
 num_games = 1000
+update_step = 0 # counter for number of training step for ppo agent
+total_match_count = 0 # counter for number of matches played
+np.random.seed(0)
 for episode in range(num_games):
     running_return = 0
     total_timesteps = 0
 
-    obs, info = env.reset(seed = episode)
+    obs, info = env.reset(seed = np.random.randint(0, 10000))
 
     agents = [
                 PPOAgent(player="player_0", env_cfg = info['params'], config=config),
@@ -79,7 +92,7 @@ for episode in range(num_games):
     match_count = 0
     player_0_score = 0
     player_1_score = 0
-
+    
     while True:
         total_timesteps += 1
         
@@ -98,10 +111,19 @@ for episode in range(num_games):
         agents[0].append_to_buffer(terminated[agent.player])   
         done = total_timesteps >= 505
         if step > 1 and (step % update_timestep == 0 or done):
+            update_step += 1
             loss = agents[0].learn()
             print(f"Step {step}: loss: {loss}: running return: {running_return/(total_timesteps)} score: player_0 {agents[0].universe.teampoints} player_1 {agents[0].universe.opponent_teampoints}")
+            # Log to wandb
+            
+            wandb.log({
+                "step": step,
+                "update_step": update_step,
+                "loss": loss,
+                "running_return": running_return / total_timesteps,
+            })
 
-        
+
         if step == 100 or step ==101:
             print("match done", step, total_timesteps)
             print("--------------------------------------------------------------------------------------------")
@@ -115,10 +137,16 @@ for episode in range(num_games):
             elif agents[0].universe.opponent_teampoints > agents[0].universe.teampoints:
                 player_1_score += 1
             match_count += 1
+            total_match_count += 1
+
+            wandb.log({
+                "total_match_count": total_match_count,
+                "player_0_score": agents[0].universe.teampoints,
+                "player_1_score": agents[0].universe.opponent_teampoints
+            })
     
         if done:
-           
-
+        
             print("Game done") 
             print(f"Game {match_count}/{5}: score: player_0 {player_0_score} - {player_1_score} player_1")
             print("--------------------------------------------------------------------------------------------")
@@ -127,8 +155,7 @@ for episode in range(num_games):
             print("model saved")
             print("Elapsed Time  : ", datetime.now().replace(microsecond=0) - start_time)
             print("--------------------------------------------------------------------------------------------")
-            break
-        
+            break   
 env.close()  
 
 

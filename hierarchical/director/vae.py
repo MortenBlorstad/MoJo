@@ -120,7 +120,7 @@ class VAE(nn.Module):
             cfg['hid1_dim'],
             cfg['hid2_dim'],
             cfg['latent_dim'],
-            cfg['lr'],
+            float(cfg['lr']),
             beta=cfg['beta']        
         ).to(device)
 

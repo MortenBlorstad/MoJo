@@ -221,8 +221,6 @@ class ActorCritic(nn.Module):
         if self.image_size is not None:
             #state = state / 255.0  # Normalize image
             state = self.feature_extractor(image)
-
-        print("state", state.shape)
         if self.has_continuous_action_space:
             action_mean = self.actor(state, one_hot_pos, scalars, step_embedding)
             cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
@@ -442,6 +440,7 @@ class PPO:
             loss = (-torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values, rewards) - 0.01 * dist_entropy)
             loss = loss[:,units_inplay].mean() # mask away unavailable units
             total_loss += loss.item()
+
             
             # take gradient step
             self.optimizer.zero_grad()

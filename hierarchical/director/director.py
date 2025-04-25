@@ -254,7 +254,6 @@ class Director():
             
             #Get the current buffer length for this ship
             l = self.parent.worker.bufferList[self.shipIndex].length()  
-
             if self.parent.training:              
 
                 #Check if it is update o'clock: timeout or last step in match
@@ -287,44 +286,91 @@ class Director():
         def is_valid_step(self,step):
             return (step - 1) % 3 == 0 and 1 <= step <= 1 + 3 * 15  # Ensure within range
         
-        def act(self, x, y, e, step):
-                #Is ship in play this time step?              
-                active = x != -1 and y != -1 and e > 0 and self.is_valid_step(step)               
+        # def act(self, x, y, e, step):
+        #         #Is ship in play this time step?              
+        #         active = x != -1 and y != -1 and e > 0 and self.is_valid_step(step)               
                 
-                #If ship was removed from map... 
-                if (self.activelast and not active) or step == 101:
+        #         #If ship was removed from map... 
+        #         if (self.activelast and not active) or step == 101:
 
-                    #...we end the mission
-                    self.missionComplete()
+        #             #...we end the mission
+        #             self.missionComplete()
 
-                    #and reward ship with notification that this was terminal
-                    self.rewardShip(1)
+        #             #and reward ship with notification that this was terminal
+        #             self.rewardShip(1)
 
-                #Ship was spawned.
-                elif not self.activelast and active:                    
-                    self.setGoal()
+        #         #Ship was spawned.
+        #         elif not self.activelast and active:                    
+        #             self.setGoal()
 
-                #Alive and kicking....
-                elif self.activelast and active:
+        #         #Alive and kicking....
+        #         elif self.activelast and active:
                     
-                    #Reward ship notifying it is not terminal
-                    self.rewardShip(0)
+        #             #Reward ship notifying it is not terminal
+        #             self.rewardShip(0)
 
-                #Active ships must take an action
-                if active:
+        #         #Active ships must take an action
+        #         if active:
 
-                    action = self.pickShipAction(x,y,e.item(),step)
+        #             action = self.pickShipAction(x,y,e.item(),step)
                 
-                #For inactive ships we return zeros
-                else:
-                    action = (0,0,0)       
+        #         #For inactive ships we return zeros
+        #         else:
+        #             action = (0,0,0)       
                 
-                #Update active state
-                if step != 100:
-                    self.activelast = active
-                else:
-                    self.parent.worker.bufferList[self.shipIndex].clear()
+        #         #Update active state
+        #         if step < 100:
+        #             self.activelast = active
+        #         else:
+        #             self.parent.worker.bufferList[self.shipIndex].clear()
                     
                 
-                #Return action picked by ship
-                return action
+        #         #Return action picked by ship
+        #         return action
+
+        def act(self,x,y,e,step):
+                                
+
+            #Is ship in play this time step?
+            active = x != -1 and y != -1
+            
+        
+
+            #If ship was removed from map... 
+            if self.activelast and not active:                   
+
+                #...we end the mission
+                self.missionComplete()                    
+
+                #and reward ship with notification that this was terminal
+                self.rewardShip(1)
+                     
+
+            #Ship was spawned.
+            elif not self.activelast and active:                   
+                self.setGoal()
+                
+
+            #Alive and kicking....
+            elif self.activelast and active:
+                
+                #Reward ship notifying it is not terminal
+                self.rewardShip(0)
+              
+            #Active ships must take an action
+            if active:
+                action = self.pickShipAction(x,y,e.item(),step)
+    
+            #For inactive ships we return zeros
+            else:
+                action = (0,0,0)
+            
+            #Update active state
+            if step != 100:
+                self.activelast = active
+            else:
+                self.parent.worker.bufferList[self.shipIndex].clear()
+                
+           
+            
+            return action
