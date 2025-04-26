@@ -35,6 +35,30 @@ Units must also manage energy carefully—depleting energy prevents action, requ
 **Mo**rten Blørstad & **Jø**rgen Mjaaseth
 
 
+## Our solution - Director Agent Description
+Our Director agent combines a world model with hierarchical RL approach to tackle the challenges of the Lux AI environment. We expand the hierarchical RL framework to support multi-agent systems. The agent consists of the following main components:
+
+- Universe: Preprocesses raw observations from environment into a structured, meaningful representation which is used as input to the world model.
+- World Model (Hybrid-RSSM): Learns a compact, task-relevant latent representation of the universe output and environment dynamics, enabeling it to predict future imagined trajectories.
+- Director: A hierarchical agent
+  - Manager: A high-level policy that assigns goals to each individual worker based on the latent features.
+  - Workers: Low-level policies that translate assigned goals into concrete environment actions.
+  - Goal autoencoder: Encodes latent states into discrete goal codes, simplifying goal selection for the manager.
+- Multi-agent PPO System:
+
+    - Common Actor-Critic (CommonAC): A shared network that enables all agents (Manager and Workers) to learn from a unified policy.
+
+    - Behaviour Actor-Critic (BehaviourAC): Each agent has its own interaction head to maintain distinct behaviors.
+
+    - Centralized Training Mechanism: Aggregates experiences from all agents for efficient, stable learning.
+
+    - Multi-agent Replay Buffers: Store experiences across agents for training updates.
+
+  Together, these components allow Director to plan over imagined futures, assign dynamic goals, and execute coordinated actions across multiple agents under uncertainty.
+
+  The observations from the environment are preproceed by the universe class  and are stored in a replay buffer, which is used to train the world model. The world model encodes the universe output into a latent space which is used as input to the Director agent to encode and select goals in order for the workers select actions.
+  
+  
 ## How to use our code
 
 1. Install Lux AI season 3:
@@ -77,7 +101,7 @@ From the `Lux-Design-S3` directory as root, run the following command to start e
 python MoJo/evaluate.py
 ```
 
-## Code structure:
+### Code structure:
 
 Extracting environment information:
 - `universe/` contains the code and files for extracting the environment information.
@@ -93,6 +117,8 @@ Our direcor agent:
 - `hierarchical/world_model/` contains the code for the world model, HRSSM. (Learning Latent Dynamic Robust Representations for World Models, Sun et al.)
 - `hierarchical/director` contains the code for the hierarchical agent, Director. (Deep Hierarchical Planning from Pixels, Hafner et al.) 
 
+### Group work and individual implementation
+As agreed with Nello, due to the complexity of our solution, all parts of the project have been implemented as group work.
 
 
 
