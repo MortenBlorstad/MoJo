@@ -3,7 +3,39 @@ This repo contains the Agent(s) for the Kaggle competition [*Lux AI Challenge Se
 
 The full game rules/specs can be found [here](https://github.com/Lux-AI-Challenge/Lux-Design-S3/blob/main/docs/specs.md).
 
-## How to use
+
+## Environment Description
+
+The [Lux AI Season 3](https://www.kaggle.com/competitions/lux-ai-season-3) competition, part of NeurIPS 2024 and hosted by Kaggle, challenges participants to design intelligent agents that operate in a complex, partially observable two-player environment.
+
+The game unfolds on a procedurally generated 24x24 2D grid. Each game consists of a best-of-five match sequence, where each match spans 100 time steps. Teams control units that explore the map, collect relic points, and deny their opponent's progress.
+
+
+The map includes several types of tiles:
+
+- **Empty**: Standard traversable tiles.
+- **Asteroid**: Impassable tiles.
+- **Nebula**: Reduces vision and drains energy.
+- **Energy Nodes**: Emit harvestable energy fields.
+- **Relic Nodes**: Award points when units occupy special hidden tiles nearby.
+
+Asteroids and other elements may shift over time. Relic scoring zones are only discoverable through active exploration, adding another layer of strategic complexity.
+
+
+The environment features fog of war mechanics. Each unit grants vision using a distance-based sensor model, visualized as pink tiles. Nebula tiles further diminish visibility, complicating decision-making under uncertainty.
+
+Units must also manage energy carefully—depleting energy prevents action, requiring units to recharge near energy fields or risk removal via opponent attacks.
+
+![Lux AI Example](assets/LuxExample.png)
+
+*Visualization of a Lux AI game between teams 'Flat Neurons' (#1) and 'EcoBangBang' (#6). Blue circle = Player 1 ship. Red circle = Player 2 ship. Black tile = Asteroid. Purple tile = Nebula. Pink tile = Visible tile. Yellow outlines = Relic tiles. Blue line = Zap (attack).*
+
+
+# Team MoJo
+**Mo**rten Blørstad & **Jø**rgen Mjaaseth
+
+
+## How to use our code
 
 1. Install Lux AI season 3:
 ```
@@ -25,72 +57,46 @@ cd Lux-Design-S3
 git clone https://github.com/MortenBlorstad/MoJo.git
 ```
 
-3. Train the agent:
+of if your already have the code, place the `MoJo` folder in the `Lux-Design-S3` folder.
+
+
+
+3. Train the agents:
+From the `Lux-Design-S3` directory as root, run the following command to start training the director agent:
 ```
-python hierarchical/trainer.py
+python MoJo/hierarchical/trainer.py
+```
+and the following command to start training the baseline PPO agent:
+```
+python MoJo/baseline/trainer.py
+```
+
+4. Evaluate the agents:
+From the `Lux-Design-S3` directory as root, run the following command to start evaluating the director agent:
+```
+python MoJo/evaluate.py
 ```
 
 ## Code structure:
 
-- `hierarchical/` contains the code for the hierarchical agent.
+Extracting environment information:
+- `universe/` contains the code and files for extracting the environment information.
+- `universe/universe.py/` contains the universe class, which is the main class for extracting the environment information.
+
+Baseline PPO agent:
+- `baseline/` contains the code relevant for the our baseline PPO agent.
+- `hierarchical/agent/` contains the code for the agent, PPO. (Proximal Policy Optimization Algorithms, Schulman et al.)
+
+
+Our direcor agent:
+- `hierarchical/` contains the code for the our direcor agent.
 - `hierarchical/world_model/` contains the code for the world model, HRSSM. (Learning Latent Dynamic Robust Representations for World Models, Sun et al.)
-- `hierarchical/director.py` contains the code for the hierarchical agent, Director. (Deep Hierarchical Planning from Pixels, Hafner et al.) 
-- `hierarchical/agents/multiagentmanagerppo.py` contains the code for manager policy components of the Director. 
-- `hierarchical/agents/multiagentworkerppo.py` contains the code for the worker policy components of the Director.
+- `hierarchical/director` contains the code for the hierarchical agent, Director. (Deep Hierarchical Planning from Pixels, Hafner et al.) 
 
 
-## Team MoJo: 
-**Mo**rten Blørstad & **Jø**rgen Mjaaseth
-
-## Plan/Idea
-
-### Components
-- **Unit agent**: an agent that controls a unit. Performs tasks/missions.  
-- **Mission control**: an agent assigning tasks/missions to unit agents (e.g. explore or gather points (relic))
--  **Env Model**: Model of the world/env/state/transition used to predict the next $n$ states.
-
-![agents](https://github.com/user-attachments/assets/f4cd6faa-b696-4942-b75b-8a302ffd5fa1)
 
 
-*TODO*
-- [ ] Make Env Model, $O_{t+1} \sim P(\cdot | O_t)$
-- [ ] Make simple Mission control with two missions to explore or relic.
-- [ ] Make simple Unit agents that can perform two missions explore or relic.
-  - [ ] explore
-  - [ ] relic
-
-### State
-The world is a 24x24 grid.
 
 
-$O_t$: $24x24x8$
-
-8 channels: 
-- Player 1 Unit ($P_1$)
-- Player 2 Unit ($P_2$)
-- Nebula Tiles (N)
-- Energy Nodes (E)
-- Energy Void (V)
-- Asteroid Tiles (A)
-- Relic Nodes (R)
-- Observered / in vision (O)
-
-A state $S_t$ is $O_{t-3}:O_{t+3}$: $24x24x8x7$.
-$O_{t+1}:O_{t+3}$ is given by the Env Model, $\sim P(\cdot | O_t)$ 
-
-![state](https://github.com/user-attachments/assets/9c09c31d-b274-43fc-be4d-1934c46f2e35)
-
-*TODO*
-- [ ] Make a function that creates observation: $O_t$: $24x24x8$
-
-### Reward 
-Different rewards depending on the  type of agent and mission:
-- Mission control: overall reward (e.g. our team score or our team score/opponents team score)
-- Unit agent: a specific reward function for each task. 
-
-*TODO*
-- [ ] define a reward function for Mission control.
-- [ ] define a reward function for Unit agent - relic.
-- [ ] define a reward function for Unit agent - explore.
 
 

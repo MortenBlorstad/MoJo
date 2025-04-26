@@ -45,7 +45,7 @@ elo_scores = {name: 1000 for name in agent_pool}
 # Store match outcomes
 results = defaultdict(lambda: {"wins": 0, "losses": 0})
 
-num_games_per_pair = 1
+num_games_per_pair = 5  # Number of games to play between each pair of agents
 
 for a1, a2 in combinations(agent_names, 2):
     for i in range(num_games_per_pair):

@@ -70,7 +70,7 @@ wandb.init(
 
 
 print("============================================================================================")
-num_games = 1000
+num_games = 20
 update_step = 0 # counter for number of training step for ppo agent
 total_match_count = 0 # counter for number of matches played
 np.random.seed(0)

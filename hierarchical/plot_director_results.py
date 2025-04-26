@@ -78,7 +78,7 @@ plot_loss(history,"simsr_loss", os.path.join(plot_dir, "world_model_sim_loss_plo
 plot_loss(history,"mbr_loss", os.path.join(plot_dir, "world_model_latent_recon_loss_plot.png"))
 
 
-# plot_loss(history,"mgrloss", os.path.join(plot_dir, "director_mgrloss_plot.png"))
-# plot_loss(history,"wrkloss", os.path.join(plot_dir, "director_wrkloss_plot.png"))
-# plot_loss(history,"goalloss", os.path.join(plot_dir, "director_goalloss_plot.png"))
+plot_loss(history,"mgrloss", os.path.join(plot_dir, "director_mgrloss_plot.png"))
+plot_loss(history,"wrkloss", os.path.join(plot_dir, "director_wrkloss_plot.png"))
+plot_loss(history,"goalloss", os.path.join(plot_dir, "director_goalloss_plot.png"))
 plot_scores(history, os.path.join(plot_dir, "director_combined_player_scores.png"))

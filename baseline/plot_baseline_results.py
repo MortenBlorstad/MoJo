@@ -8,7 +8,7 @@ os.makedirs(plot_dir, exist_ok=True)
 api = wandb.Api()
 
 # Correct W&B path
-run = api.run("Team-Mojo/baseline/gdvvj4ws")
+run = api.run("Team-Mojo/baseline/s748ma3r")
 ''
 
 # Fetch history
