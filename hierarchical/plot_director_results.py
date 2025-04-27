@@ -25,6 +25,8 @@ history = run.history(samples=250000)
 def plot_loss(history, loss_name, out_path):
     """Plot the loss curve over training steps."""
     smoothed_loss = history[loss_name].dropna() # .ewm(alpha=0.99, ignore_na=True).mean()
+    if loss_name == "mgrloss":
+        smoothed_loss = np.clip(smoothed_loss, 0, 1000)
     plt.figure(figsize=(2*3.4, 2*2.5), dpi=300)
     plt.plot(smoothed_loss, label="Loss")
     plt.xlabel("Training Step", fontsize=10)

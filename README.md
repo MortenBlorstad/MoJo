@@ -34,6 +34,7 @@ Units must also manage energy carefully—depleting energy prevents action, requ
 # Team MoJo
 **Mo**rten Blørstad & **Jø**rgen Mjaaseth
 
+The report for this project can be found [here](report.pdf).
 
 ## Our solution - Director Agent Description
 Our Director agent combines a world model with hierarchical RL approach to tackle the challenges of the Lux AI environment. We expand the hierarchical RL framework to support multi-agent systems. The agent consists of the following main components:
