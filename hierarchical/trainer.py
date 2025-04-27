@@ -33,11 +33,11 @@ env = LuxAIS3GymEnv( numpy_output = True)
 if cfg['logepisodes']:
     env = RecordEpisode(env, save_dir=cfg['episodelogdir'])
 
-num_games = 1000
+num_games = 20
 games_won = 0
 total_match_count = 0 # counter for number of matches played
 np.random.seed(0)
-for game in range(num_games+1):
+for game in range(num_games):
     game_step = 0
     match_number = 0
     seed = np.random.randint(0, 10000)
