@@ -1,23 +1,25 @@
+"""
+This script trains a baseline PPO agent (PPOAgent) to play Lux AI Season 3.
+
+It initializes the environment, loads configurations, manages training loops, and periodically saves models and logs metrics via Weights & Biases (wandb).
+The opponent agent uses a rule-based baseline (Agent class).
+The script supports resuming from checkpoints and records overall match performance during training.
+"""
 
 import sys
 import os
-import json 
 import sys
-
+import numpy as np
+import jax.numpy as jnp
+import yaml
+from base_agent import Agent
+import wandb
+from agent.ppo_agent import PPOAgent
+from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 if sys.stderr is None:
     sys.stderr = sys.__stderr__  # Reset stderr to the default
     print("🔥 Restored sys.stderr. Now catching the real error.")
 
-
-
-import numpy as np
-import jax
-import jax.numpy as jnp
-import flax
-import yaml
-
-
-import wandb
 
 
 
@@ -25,13 +27,7 @@ import wandb
 mojo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, mojo_path)  # Ensure it is searched first
 
-from base_agent import Agent
-from universe.universe import Universe
-from replay_memory import ReplayMemory, Transition
 
-
-from agent.ppo_agent import PPOAgent
-from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 
 with open('MoJo/baseline/config.yaml', 'r') as f:
     config = yaml.safe_load(f)

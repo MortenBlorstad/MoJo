@@ -1,26 +1,32 @@
+"""
+This script trains a Director-based hierarchical reinforcement learning agent to play Lux AI Season 3.
 
+It initializes the environment, configures training from a YAML-based configuration system, and runs multiple games with 5 matches each.
+Player 0 uses the Director agent with hierarchical planning and a learned world model, while Player 1 uses a simple rule-based baseline agent.
+The script periodically logs match results and saves model checkpoints based on the configured frequency.
+"""
 import sys
 import os
 import sys
-
-
+from hierarchical.config import Config
+from base_agent import Agent
+from hierarchical.director.director import Director
+import numpy as np
+import jax.numpy as jnp
+from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
 
 if sys.stderr is None:
     sys.stderr = sys.__stderr__  # Reset stderr to the default
     print("🔥 Restored sys.stderr. Now catching the real error.")
 
-import numpy as np
-import jax.numpy as jnp
+
 
 # Get the absolute path of the MoJo directory
 mojo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, mojo_path)  # Ensure it is searched first
 
-from hierarchical.config import Config
-from base_agent import Agent
-from hierarchical.director.director import Director
 
-from luxai_s3.wrappers import LuxAIS3GymEnv, RecordEpisode
+
 
 cfg = Config().Get("Trainer")
 env = LuxAIS3GymEnv( numpy_output = True)

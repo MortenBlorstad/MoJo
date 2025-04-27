@@ -1,3 +1,11 @@
+"""
+This module defines the Nebula class and supporting functions for predicting and modeling the movement of dynamic obstacles (nebulae and asteroids) in the Lux AI Season 3 environment.
+
+The Nebula class learns obstacle drift speed, predicts future positions based on observed changes, and detects obstacle entries and exits using JAX-accelerated computations.
+Supporting functions handle probability propagation, symmetry adjustments, and movement pattern detection for enhanced prediction accuracy.
+Includes unit tests for obstacle detection functionality when run as a standalone script.
+"""
+
 from universe.base_component import base_component
 import jax
 import jax.numpy as jnp
@@ -5,7 +13,7 @@ import numpy as np
 from typing import Tuple,List
 
 from jax import jit
-
+# region helper functions
 @jit
 def get_symmetric_coordinates(indices:jnp.array, nrows = 24, ncols = 24):
     """
@@ -88,8 +96,7 @@ def move_probability(carry, i:int)->jnp.ndarray:
     mask_up_right = ((0<moved_up_right) & (moved_up_right<jnp.inf)) | ((0<moved_down_left) & (moved_down_left<jnp.inf))
     pred = jnp.where(remove_mask, 1/(1+denom_factor), pred)
     pred = jnp.where(mask_up_right , 1/(1+denom_factor), pred)
-    #pred = jnp.where(mask_down_left, 1/(1+moved), pred_new)
-    #pred = pred.at[mask].set(1/(i+2))
+    
     return (pred,step,checks), pred
 
 @jit
@@ -136,7 +143,7 @@ def remove_unwanted_columns(matrix):
     return jnp.take(matrix,valid_indices,axis =1)
 
 
-
+# endregion
 
 
 # ===============
@@ -158,15 +165,14 @@ class Nebula(base_component):
         """
         super().__init__()
         self.horizon = horizon
-        #self.map = jnp.zeros((1+horizon,24,24))
         self.nebula_tile_drift_speed:float = 0.0
         self.change_steps:list = [7, 10, 14, 20, 27, 30, 34, 40, 47, 50, 54, 60, 67, 70, 74, 80, 87, 90, 94, 100]
         self.change_steps_set:set = set(self.change_steps)
         self.previous_observed_change:int = 0
         self.change_rate:int = 0
         self.prev_step:int = 0
-        self.map = jnp.full((24,24),jnp.nan)#jnp.zeros((24,24)) 
-        #jnp.ones((24,24))/1000
+        self.map = jnp.full((24,24),jnp.nan)
+       
         self.found_unique:bool = False
         self.found_unique_value:float = 0.0
         self.direction:float = 0.0
@@ -190,7 +196,6 @@ class Nebula(base_component):
         
         # new
         # Conditionally update the map based on drift speed and step count
-        #print(steps,(steps - 1) * abs(self.nebula_tile_drift_speed) % 1 > steps * abs(self.nebula_tile_drift_speed) % 1)
         new_map = jnp.where(
             (steps - 1) * abs(self.nebula_tile_drift_speed) % 1 > steps * abs(self.nebula_tile_drift_speed) % 1, # Check if it's time to apply the shift
             new_map, # Apply the shifted map if condition is met (step interval reached)
@@ -221,7 +226,7 @@ class Nebula(base_component):
             new_rate = self.found_unique_value
         else:
             
-            #print("current", current_step, "previous_observed_change", self.previous_observed_change)
+           
             new_rate = 1/(current_step - self.previous_observed_change)
         if self.previous_observed_change ==0:
             self.change_rate = new_rate
@@ -362,23 +367,11 @@ class Nebula(base_component):
             self.prev_observation = observation
             self.prev_observable = observable
             self.prev_step = current_step
-            #self.map = self._move_astroid_or_nebula(self.map ,current_step)
-            # if self.nebula_tile_drift_speed !=0:
-            #     mask = jnp.where((self.map !=1) & (observable==1))
-            # else: 
-            #     mask = jnp.where((observable==1))
-
-            # if (current_step) == 40:
-            #     print(self.nebula_tile_drift_speed)
-            #     np.save("MoJo/mask.npy", np.asarray(mask))
-            #     np.save("MoJo/map_prev.npy", np.asarray(self.map))
-            #     np.save("MoJo/observation.npy", np.asarray(observation))
-            #     np.save("MoJo/observable.npy", np.asarray(observable))
+           
             
-            #self.map = self.map.at[mask].set(observation[mask])
+          
             self.map = jnp.where(observable==1, observation, self.map)
-            # if (current_step) ==40:
-            #     np.save("MoJo/map_after.npy",np.asarray(self.map))
+           
             self._set_symetry()
             return False
 
@@ -432,48 +425,22 @@ class Nebula(base_component):
                 print(f"Change detected at change step {current_step} by detect_obstacle. Nebula speed is {self.nebula_tile_drift_speed}, {entering} {leaving})")    
 
         if not np.any(delta == -1) and (not(entering or leaving) or enetering_direction != leaving_direction):
-            #print(f"no change detected at change step {current_step}")
+          
             self.prev_observation = observation
             self.prev_observable = observable
             self.prev_step = current_step
             self.map = self._move_astroid_or_nebula(self.map ,current_step)
-            # if self.nebula_tile_drift_speed !=0:
-            #     mask = jnp.where((self.map !=1) & (observable==1))
-            # else: 
-            #     mask = jnp.where((observable==1))
-
-            # if (current_step) == 40:
-            #     print(self.nebula_tile_drift_speed)
-            #     np.save("MoJo/mask.npy", np.asarray(mask))
-            #     np.save("MoJo/map_prev.npy", np.asarray(self.map))
-            #     np.save("MoJo/observation.npy", np.asarray(observation))
-            #     np.save("MoJo/observable.npy", np.asarray(observable))
             self.map = jnp.where(observable==1, observation, self.map)
-            #self.map = self.map.at[mask].set(observation[mask])
-            # if (current_step) ==40:
-            #     np.save("MoJo/map_after.npy",np.asarray(self.map))
             self._set_symetry()
             return False
         else:
             
             self.update_change_rate(current_step)
    
-            # print(current_step, delta.T)   
-            # print(current_step, observation_masked.T) 
-            # print(self.prev_step, self.prev_observation.T) 
+          
             moved_from_indices = jnp.array(jnp.where(delta==-1))
             moved_to_indices = jnp.array(jnp.where(delta==1))
             if moved_from_indices.shape != moved_to_indices.shape:
-               
-                # possible_directions = jnp.array([[1, -1], [-1, 1]])  # (row change, column change)
-                # directions = [-1, 1]
-                # moved_from_plus_dir1 = moved_from_indices + possible_directions[0][:, None]  # Move (1,-1)
-                # moved_from_plus_dir2 = moved_from_indices + possible_directions[1][:, None]  # Move (-1,1)
-                
-                # print(moved_to_indices)
-                # matches_dir1 = jnp.sum((moved_from_plus_dir1[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
-                # matches_dir2 = jnp.sum((moved_from_plus_dir2[:, :, None] == moved_to_indices[:, None, :]).all(axis=0), axis=1)
-                # self.direction = directions[jnp.argmax(jnp.array([matches_dir1.sum(), matches_dir2.sum()]))]
                 if dbg:
                     print(prev_observation_masked[:10,:10])
                     print(observation_masked[:10,:10])
@@ -511,10 +478,10 @@ class Nebula(base_component):
                     #raise Exception("Mixed movement or no consistent pattern")
             
             self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
-            #print(current_step, self.nebula_tile_drift_speed, direction*self.change_rate)
+           
             if dbg:
                 print(f"Change detected at change step {current_step}. Nebula speed is {self.nebula_tile_drift_speed}")    
-            #print(self.get_found_unique(current_step))
+           
 
 
 
@@ -523,22 +490,10 @@ class Nebula(base_component):
         self.prev_step = current_step
 
         self.map = self._move_astroid_or_nebula(self.map, current_step)
-        # if self.nebula_tile_drift_speed !=0:
-        #     mask = jnp.where((self.map !=1) & (observable==1))
-        # else: 
-        #     mask = jnp.where((observable==1))
+        
 
         self.map = jnp.where(observable==1, observation, self.map)
 
-        # if (current_step) == 40:
-        #     print(self.nebula_tile_drift_speed)
-        #     np.save(f"MoJo/{self.name}_mask.npy", np.asarray(mask))
-        #     np.save(f"MoJo/{self.name}_map_prev.npy", np.asarray(self.map))
-        #     np.save(f"MoJo/{self.name}_oservation.npy", np.asarray(observation))
-        #     np.save(f"MoJo/{self.name}_observable.npy", np.asarray(observable))
-        #self.map = self.map.at[mask].set(observation[mask])
-        # if (current_step) ==40:
-        #     np.save(f"MoJo/{self.name}_map_after.npy",np.asarray(self.map))
         
         self._set_symetry()
 
@@ -596,9 +551,6 @@ class Nebula(base_component):
             return [pred for pred in predictions]
         else:
             predictions = []
-            # self.map = self.map.at[observable==1].set(observation[observable==1])
-            # self.map = self.map.at[observable==0].set(observation[observable==0])
-            # self.map = self._move_astroid_or_nebula(self.map, current_step)
             predictions.append(self.map)
             prediction = self.map.copy()
             for i in range(1,self.horizon+1):

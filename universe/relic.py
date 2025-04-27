@@ -1,18 +1,43 @@
+"""
+Relic tracking and prediction module.
+This module handles the tracking and prediction of relic positions on the game map.
+"""
 from universe.base_component import base_component
 from universe.utils import reduce, symmetric, pointreduce
 from universe.relictools import EquationSet
 import jax.numpy as jnp
 import numpy as np
+from typing import List, Tuple, Optional, Any, Union
 
 #Remove tiles marked as empty from the ship positions
-def removeEmpty(positions:jnp.ndarray, values:jnp.ndarray):
+def removeEmpty(positions:jnp.ndarray, values:jnp.ndarray) -> jnp.ndarray:
+    """
+    Remove tiles marked as empty from ship positions.
+    
+    Args:
+        positions: Array of ship positions
+        values: Array of empty positions to remove
+        
+    Returns:
+        Filtered array of ship positions
+    """
     if len(values) == 0:
         return positions
     return reduce(positions, values)
 
 #Compute intersection between ship positions and possible relic tile positions
 #ToDo: Array of unique relic tile positions could be computed only @ relic node discovery time
-def relicCandidates(positions:jnp.ndarray, values:list):
+def relicCandidates(positions: jnp.ndarray, values: List[List[int]]) -> jnp.ndarray:
+    """
+    Compute intersection between ship positions and possible relic tile positions.
+    
+    Args:
+        positions: Array of ship positions
+        values: List of possible relic positions
+        
+    Returns:
+        Array of candidate relic positions
+    """
     l = []
     for r in values:
         l.append(
@@ -27,20 +52,36 @@ def relicCandidates(positions:jnp.ndarray, values:list):
 
 #Wrapper around list for handling symmetric insertion
 class SymList():
-
+    """
+    Wrapper around list for handling symmetric insertion.
+    
+    This class maintains a list of positions and automatically adds
+    their symmetric counterparts when new positions are added.
+    """
     #Constructor
     def __init__(self):
+        """Initialize the symmetric list."""
         super().__init__()
         self.reset()
 
 
     #Implement a reset function for removing all values
-    def reset(self):        
+    def reset(self) -> None:        
+        """Reset the list to empty state."""        
         #List of the stuff we are storing
         self.values = [] 
 
     #Process symmetric insert. Implemented as __call__ method
-    def __call__(self, entries):
+    def __call__(self, entries: Union[jnp.ndarray, np.ndarray, List[List[int]]]) -> bool:
+        """
+        Add entries to the list with their symmetric counterparts.
+        
+        Args:
+            entries: Positions to add
+            
+        Returns:
+            True if new entries were added, False otherwise
+        """
         
         #Keep track of changes
         changed = False
@@ -58,21 +99,30 @@ class SymList():
         return changed
 
     #Implement len(...)
-    def __len__(self):
+    def __len__(self) -> int:
+        """Get the number of values in the list."""
         return len(self.values)
     
     #Values as a jnp.array
-    def tojnp(self):
+    def tojnp(self) -> jnp.ndarray:
+        """Convert the list to a JAX numpy array."""
         return jnp.array(self.values)
     
     #item in collection?
-    def has(self,object):
+    def has(self, object: List[int]) -> bool:
+        """Check if a position is in the list."""
         return object in self.values    
 
 
 class Relics(base_component):
-
-    def __init__(self):
+    """
+    Relic tracking and prediction component.
+    
+    This class handles the tracking and prediction of relic positions
+    on the game map, including probability calculations and position updates.
+    """
+    def __init__(self) -> None:
+        """Initialize the relic tracker."""
         super().__init__()
 
         #Standard Lux stuff     
@@ -87,7 +137,15 @@ class Relics(base_component):
         #Initial map        
         self.map = self.eqset.compute(self.empty,self.relics)
 
-    def learn(self, relicPositions, points, shipPos):
+    def learn(self, relicPositions: jnp.ndarray, points: int, shipPos: jnp.ndarray) -> None:
+        """
+        Update relic knowledge based on new observations.
+        
+        Args:
+            relicPositions: Observed relic positions
+            points: Points scored in this step
+            shipPos: Current ship positions
+        """
        
         points = int(points)
 
@@ -151,5 +209,11 @@ class Relics(base_component):
             self.map = self.eqset.compute(self.empty, self.relics)
 
 
-    def predict(self):        
+    def predict(self) -> jnp.ndarray:        
+        """
+        Get the current relic probability map.
+        
+        Returns:
+            Probability map for relic positions
+        """       
         return self.map[jnp.newaxis,:]

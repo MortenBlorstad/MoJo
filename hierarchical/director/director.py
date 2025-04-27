@@ -286,47 +286,6 @@ class Director():
         def is_valid_step(self,step):
             return (step - 1) % 3 == 0 and 1 <= step <= 1 + 3 * 15  # Ensure within range
         
-        # def act(self, x, y, e, step):
-        #         #Is ship in play this time step?              
-        #         active = x != -1 and y != -1 and e > 0 and self.is_valid_step(step)               
-                
-        #         #If ship was removed from map... 
-        #         if (self.activelast and not active) or step == 101:
-
-        #             #...we end the mission
-        #             self.missionComplete()
-
-        #             #and reward ship with notification that this was terminal
-        #             self.rewardShip(1)
-
-        #         #Ship was spawned.
-        #         elif not self.activelast and active:                    
-        #             self.setGoal()
-
-        #         #Alive and kicking....
-        #         elif self.activelast and active:
-                    
-        #             #Reward ship notifying it is not terminal
-        #             self.rewardShip(0)
-
-        #         #Active ships must take an action
-        #         if active:
-
-        #             action = self.pickShipAction(x,y,e.item(),step)
-                
-        #         #For inactive ships we return zeros
-        #         else:
-        #             action = (0,0,0)       
-                
-        #         #Update active state
-        #         if step < 100:
-        #             self.activelast = active
-        #         else:
-        #             self.parent.worker.bufferList[self.shipIndex].clear()
-                    
-                
-        #         #Return action picked by ship
-        #         return action
 
         def act(self,x,y,e,step):
                                 

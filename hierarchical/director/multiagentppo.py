@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
 from torch.distributions import Categorical
-
+from typing import List, Tuple, Optional, Union, Dict, Any
+import numpy as np
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -22,7 +23,28 @@ print("=========================================================================
 
 
 class ActorCriticBase(nn.Module):
-    def __init__(self, state_dim, action_dim, has_continuous_action_space, action_std_init):
+    """
+    Base class for actor-critic networks in PPO.
+    Implements common functionality for both continuous and discrete action spaces.
+    
+    Attributes:
+        has_continuous_action_space (bool): Whether the action space is continuous
+        action_dim (int): Dimension of the action space
+        action_var (torch.Tensor): Variance for continuous actions
+        actor (nn.Sequential): Actor network
+        critic (Critic): Critic network
+    """
+    def __init__(self, state_dim: int, action_dim: int, 
+                 has_continuous_action_space: bool, action_std_init: float) -> None:
+        """
+        Initialize the actor-critic base network.
+        
+        Args:
+            state_dim (int): Dimension of the state space
+            action_dim (int): Dimension of the action space
+            has_continuous_action_space (bool): Whether the action space is continuous
+            action_std_init (float): Initial standard deviation for continuous actions
+        """
         super(ActorCriticBase, self).__init__()
 
         self.has_continuous_action_space = has_continuous_action_space
@@ -52,15 +74,37 @@ class ActorCriticBase(nn.Module):
         # critic
         self.critic = Critic(state_dim)
         
-    def set_action_std(self, new_action_std):
+    def set_action_std(self, new_action_std: float) -> None:
+        """
+        Update the standard deviation for continuous actions.
+        
+        Args:
+            new_action_std (float): New standard deviation value
+        """
         if self.has_continuous_action_space:
             self.action_var = torch.full((self.action_dim,), new_action_std * new_action_std).to(device)
 
 class BehaviourAC(ActorCriticBase):
-    def __init__(self, *args, **kwargs):        
+    """
+    Behavior actor-critic network for action selection.
+    Extends ActorCriticBase with action sampling functionality.
+    """
+    def __init__(self, *args: Any, **kwargs: Any) -> None:         
         super().__init__(*args, **kwargs)       
 
-    def act(self, state):
+    def act(self, state: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Select an action based on the current state.
+        
+        Args:
+            state (torch.Tensor): Current state observation
+            
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: 
+                - Selected action
+                - Action log probability
+                - State value estimate
+        """
 
         if self.has_continuous_action_space:
             action_mean = self.actor(state)
@@ -78,10 +122,28 @@ class BehaviourAC(ActorCriticBase):
 
 
 class CommonAC(ActorCriticBase):
-    def __init__(self, *args, **kwargs):        
+    """
+    Common actor-critic network for policy evaluation.
+    Extends ActorCriticBase with policy evaluation functionality.
+    """
+    
+    def __init__(self, *args: Any, **kwargs: Any) -> None:       
         super().__init__(*args, **kwargs)       
 
-    def evaluate(self, state, action):
+    def evaluate(self, state: torch.Tensor, action: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Evaluate the policy for given states and actions.
+        
+        Args:
+            state (torch.Tensor): Batch of states
+            action (torch.Tensor): Batch of actions
+            
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+                - Action log probabilities
+                - State values
+                - Distribution entropy
+        """
 
         if self.has_continuous_action_space:
             action_mean = self.actor(state)
@@ -106,8 +168,41 @@ class CommonAC(ActorCriticBase):
 
 
 class MultiAgentPPO:
-
-    def __init__(self, state_dim, action_dim, lr_actor, lr_critic, gamma, K_epochs, eps_clip, has_continuous_action_space, action_std_init=0.6, num_workers=2, isWorker=True):
+    """
+    Multi-Agent Proximal Policy Optimization implementation.
+    Supports both worker and manager agents in a hierarchical RL setting.
+    
+    Attributes:
+        has_continuous_action_space (bool): Whether the action space is continuous
+        action_std (float): Standard deviation for continuous actions
+        gamma (float): Discount factor
+        eps_clip (float): PPO clipping parameter
+        K_epochs (int): Number of optimization epochs
+        num_workers (int): Number of worker agents
+        isWorker (bool): Whether this is a worker agent
+        bufferList (List[Union[WrkrRolloutBuffer, MgrRolloutBuffer]]): List of rollout buffers
+        commonac (CommonAC): Common actor-critic network
+        workerACs (List[BehaviourAC]): List of behavior actor-critic networks
+    """
+    def __init__(self, state_dim: int, action_dim: int, lr_actor: float, lr_critic: float,
+                 gamma: float, K_epochs: int, eps_clip: float, has_continuous_action_space: bool,
+                 action_std_init: float = 0.6, num_workers: int = 2, isWorker: bool = True) -> None:
+        """
+        Initialize the Multi-Agent PPO system.
+        
+        Args:
+            state_dim (int): Dimension of the state space
+            action_dim (int): Dimension of the action space
+            lr_actor (float): Learning rate for the actor network
+            lr_critic (float): Learning rate for the critic network
+            gamma (float): Discount factor
+            K_epochs (int): Number of optimization epochs
+            eps_clip (float): PPO clipping parameter
+            has_continuous_action_space (bool): Whether the action space is continuous
+            action_std_init (float): Initial standard deviation for continuous actions
+            num_workers (int): Number of worker agents
+            isWorker (bool): Whether this is a worker agent
+        """
 
         self.has_continuous_action_space = has_continuous_action_space
 
@@ -154,7 +249,13 @@ class MultiAgentPPO:
         
         self.MseLoss = nn.MSELoss()
 
-    def set_action_std(self, new_action_std):
+    def set_action_std(self, new_action_std: float) -> None:
+        """
+        Update the standard deviation for continuous actions.
+        
+        Args:
+            new_action_std (float): New standard deviation value
+        """
         if self.has_continuous_action_space:
             self.action_std = new_action_std
             self.commonac.set_action_std(new_action_std)
@@ -162,7 +263,14 @@ class MultiAgentPPO:
                 self.workerACs[i].set_action_std(new_action_std)
 
 
-    def decay_action_std(self, action_std_decay_rate, min_action_std):
+    def decay_action_std(self, action_std_decay_rate: float, min_action_std: float) -> None:
+        """
+        Decay the action standard deviation over time.
+        
+        Args:
+            action_std_decay_rate (float): Rate at which to decay the standard deviation
+            min_action_std (float): Minimum allowed standard deviation
+        """
         if self.has_continuous_action_space:
             self.action_std = self.action_std - action_std_decay_rate
             self.action_std = round(self.action_std, 4)
@@ -171,7 +279,17 @@ class MultiAgentPPO:
 
             self.set_action_std(self.action_std)
 
-    def select_action(self, state, worker_id):
+    def select_action(self, state: np.ndarray, worker_id: int) -> Union[np.ndarray, int]:
+        """
+        Select an action for a given worker based on the current state.
+        
+        Args:
+            state (np.ndarray): Current state observation
+            worker_id (int): ID of the worker agent
+            
+        Returns:
+            Union[np.ndarray, int]: Selected action
+        """
 
         with torch.no_grad():
             state = torch.FloatTensor(state).to(device)
@@ -187,9 +305,18 @@ class MultiAgentPPO:
         else:
             return action.item()
 
-    def update(self, worker_id):
+    def update(self, worker_id: int) -> float:
+        """
+        Update the policy for a given worker using PPO.
+        
+        Args:
+            worker_id (int): ID of the worker agent to update
+            
+        Returns:
+            float: Loss value from the update
+        """
 
-        def conditional_squeeze(tensor):
+        def conditional_squeeze(tensor: torch.Tensor) -> torch.Tensor:
             return tensor.squeeze() if tensor.ndim > 1 else tensor
 
         if self.isWorker:
@@ -253,14 +380,33 @@ class MultiAgentPPO:
 
         return loss.detach().cpu().numpy()
     
-    def save(self, checkpoint_path):
+    def save(self, checkpoint_path: str) -> None:
+        """
+        Save the model weights to a checkpoint file.
+        
+        Args:
+            checkpoint_path (str): Path to save the checkpoint
+        """
         torch.save(self.commonac.state_dict(), checkpoint_path)
 
-    def saveDescriptive(self, path, name):        
+    def saveDescriptive(self, path: str, name: str) -> None:
+        """
+        Save the model with a descriptive message.
+        
+        Args:
+            path (str): Path to save the model
+            name (str): Name of the model
+        """     
         self.save(path)
         print("Saved",name,"to file",path)
    
-    def load(self, checkpoint_path):    
+    def load(self, checkpoint_path: str) -> None:
+        """
+        Load model weights from a checkpoint file.
+        
+        Args:
+            checkpoint_path (str): Path to the checkpoint file
+        """  
         dictionary = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
         self.commonac.load_state_dict(dictionary)
         for worker in self.workerACs:

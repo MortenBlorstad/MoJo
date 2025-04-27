@@ -392,15 +392,7 @@ class PPO:
         return np.array(rewards_per_unit)
 
     def update(self, units_inplay):
-        # Monte Carlo estimate of returns
-        # rewards = []
-        # discounted_reward = 0
-        # for reward, is_terminal in zip(reversed(self.buffer.rewards), reversed(self.buffer.is_terminals)):
-        #     if is_terminal:
-        #         discounted_reward = 0
-        #     discounted_reward = reward + (self.gamma * discounted_reward)
-        #     rewards.insert(0, discounted_reward)
-
+       
         rewards = self.compute_per_unit_rewards()
         # Normalizing the rewards
         rewards = torch.tensor(rewards, dtype=torch.float32).squeeze(1).to(device)

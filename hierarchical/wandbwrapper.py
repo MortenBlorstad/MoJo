@@ -1,8 +1,22 @@
 import wandb
-
+from typing import Any, Dict, List, Union
 class WandbWrapper():
-
-    def __init__(self, usewandb):
+    """
+    A wrapper class for Weights & Biases (wandb) logging functionality.
+    This class provides a simplified interface for logging metrics and tracking experiments.
+    
+    Attributes:
+        _WW_usewandb (bool): Flag indicating whether wandb logging is enabled
+        _WW_run (wandb.Run): The active wandb run instance
+    """
+    
+    def __init__(self, usewandb: bool) -> None:
+        """
+        Initialize the WandbWrapper.
+        
+        Args:
+            usewandb (bool): Whether to enable wandb logging
+        """
 
         self._WW_usewandb = usewandb
 
@@ -12,16 +26,18 @@ class WandbWrapper():
             wandb.init(
                 # set the wandb project where this run will be logged
                 project="Complete MoJo",
-
-                # track hyperparameters and run metadata
-                #config={        
-                #    "some_param": "has_been_set"
-                #}
             )
             self._WW_run = wandb.init()
             
     #Record loss value
-    def record(self, propertyName, propertyValue):
+    def record(self, propertyName: str, propertyValue: Any) -> None:
+        """
+        Record a metric value for wandb logging.
+        
+        Args:
+            propertyName (str): Name of the metric to record
+            propertyValue (Any): Value to record for the metric
+        """
         if self._WW_usewandb:
             x = getattr(self, propertyName)
             if isinstance(x,list):
@@ -31,7 +47,11 @@ class WandbWrapper():
 
 
     #Clear everything
-    def __clear(self):
+    def __clear(self) -> None:
+        """
+        Clear all recorded metrics.
+        Internal method used before logging a new batch of metrics.
+        """
         for (k, v) in self.__dict__.items():
             if(k[0:4] == "_WW_"):
                 pass
@@ -41,9 +61,13 @@ class WandbWrapper():
                 else:
                     setattr(self, k, 0)
 
-    def report(self):
+    def report(self) -> None:
+        """
+        Log all recorded metrics to wandb and clear the internal state.
+        For list-type metrics, logs the average value.
+        """
         if self._WW_usewandb:
-            r = {}
+            r:Dict[str, Union[float, int, Dict]] = {}
             for (k, v) in self.__dict__.items():
                 if(k[0:4] == "_WW_"):
                     pass

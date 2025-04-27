@@ -1,3 +1,10 @@
+"""
+This script fetches training metrics from a Weights & Biases (wandb) run for the Director agent and its world model, and generates detailed loss and performance plots.
+
+It retrieves various losses related to model learning (e.g., dynamics, prediction, similarity, latent reconstruction) and plots both world model and Director policy losses.
+Additionally, it tracks and visualizes match scores between the Director agent and a rule-based opponent, saving all plots.
+"""
+
 import wandb
 import matplotlib.pyplot as plt
 import os

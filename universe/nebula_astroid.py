@@ -1,3 +1,10 @@
+"""
+This module defines the NebulaAstroid class, which models and predicts the joint movement dynamics of nebulae and asteroids in the Lux AI Season 3 environment.
+
+The NebulaAstroid class tracks drift speed, change rates, and directional movements for nebulas and astroinds using the Nebula class.
+It learns a unified drift model when either nebulae or asteroids show consistent movement patterns, and predicts future states across a planning horizon.
+"""
+
 from universe.base_component import base_component
 from jax import jit, lax
 import jax.numpy as jnp
@@ -36,10 +43,7 @@ class NebulaAstroid(base_component):
         """
         return min(possible_rates, key=lambda x: abs(x - change_rate))
 
-    # def set_values(from_info:Nebula, to_info:Nebula):
-    
-    
-    
+  
 
 
     def learn(self, nebulas:jnp.ndarray ,astroids:jnp.ndarray , observable:jnp.ndarray , current_step:int)-> bool:
@@ -52,10 +56,10 @@ class NebulaAstroid(base_component):
         if isinstance(observable, np.ndarray):
             observable = jnp.array(observable)
 
-        #print("nebula")
+
         observed_change_nebula = self.nebula.learn(nebulas,observable,current_step-1, self.previous_observed_change)
         
-        #print("astroid")
+
         observed_change_astroid =  self.astroid.learn(astroids, observable, current_step-1, self.previous_observed_change)
         
         
@@ -74,9 +78,9 @@ class NebulaAstroid(base_component):
             self.previous_observed_change = current_step-1
             
             weight = 1/float(observed_change_nebula + observed_change_astroid)
-            #print("dir",weight,  (observed_change_nebula*nebula_dir), observed_change_astroid*astroid_dir)
+           
             self.direction = jnp.sign(weight*(observed_change_nebula*nebula_dir) + weight*(observed_change_astroid*astroid_dir)).item()
-            #print(current_step-1,self.direction,observed_change_nebula,observed_change_astroid,(observed_change_nebula * nebula_change_rate),(observed_change_astroid*astroid_change_rate))
+           
             new_rate = weight*(observed_change_nebula * nebula_change_rate) + weight*(observed_change_astroid*astroid_change_rate)
             self.nebula.change_rate = new_rate
             self.astroid.change_rate = new_rate
@@ -96,15 +100,11 @@ class NebulaAstroid(base_component):
                 self.nebula.direction = astroid_dir
 
             else:
-                #print("change_rate", self.change_rate, "direction", self.direction, self.closest_change_rate(self.change_rate))
+               
                 self.nebula_tile_drift_speed = self.direction*self.closest_change_rate(self.change_rate)
         
         
-        # print("after",self.nebula_tile_drift_speed,self.nebula.nebula_tile_drift_speed, self.astroid.nebula_tile_drift_speed,
-        #        self.nebula.change_rate, self.astroid.change_rate,
-        #          self.nebula.previous_observed_change,self.astroid.previous_observed_change, self.previous_observed_change,
-        #          self.nebula.direction , self.astroid.direction, self.direction 
-        #            )
+      
 
 
    

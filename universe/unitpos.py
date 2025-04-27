@@ -1,9 +1,24 @@
+"""
+Unit position tracking and prediction module.
+This module handles the tracking and prediction of unit positions on the game map.
+"""
 from universe.base_component import base_component
 import numpy as np
-
+from typing import Dict, List, Tuple, Optional
 class Unitpos(base_component):
-
+    """
+    Unit position tracking and prediction component.
+    
+    This class handles the tracking and prediction of unit positions on the game map,
+    including probability distribution calculations for unit movements.
+    """
     def __init__(self, horizon):
+        """
+        Initialize the unit position tracker.
+        
+        Args:
+            horizon: Number of steps to predict ahead
+        """
         super().__init__()
         self.horizon = horizon        
         self.mapsize = (24,24)
@@ -22,8 +37,18 @@ class Unitpos(base_component):
         self.probDict = {}
     
     #Calculate probability of ending up in a surrounding tile
-    def getProbsInner(self,possible,v,astroids):
-
+    def getProbsInner(self,possible: np.ndarray, v: float, astroids: np.ndarray) -> np.ndarray:
+        """
+        Calculate probability distribution for unit movements.
+        
+        Args:
+            possible: Possible movement positions
+            v: Base probability value
+            astroids: Asteroid probabilities for each position
+            
+        Returns:
+            Array of movement probabilities
+        """
         #Create the list of probabilities
         probs = [1/6]*len(possible)
         probs[0]+=1/6*(6-len(possible))        
@@ -38,8 +63,18 @@ class Unitpos(base_component):
         return probs
 
     #Lookup case in dictionary or create new entry   
-    def getProbs(self,possible,v,astroids):
-
+    def getProbs(self,possible: np.ndarray, v: float, astroids: np.ndarray) -> np.ndarray:
+        """
+        Get cached or calculate new probability distribution.
+        
+        Args:
+            possible: Possible movement positions
+            v: Base probability value
+            astroids: Asteroid probabilities for each position
+            
+        Returns:
+            Array of movement probabilities
+        """
         key = (possible.tobytes(),v.tobytes(),astroids.tobytes())
         if key not in self.probDict:
             v = self.getProbsInner(possible,v,astroids)
@@ -48,8 +83,17 @@ class Unitpos(base_component):
         return self.probDict[key]
 
     #Distribute probabilities
-    def probDistribute(self, lastprobmap, astroids):
-
+    def probDistribute(self, lastprobmap: np.ndarray, astroids: np.ndarray) -> np.ndarray:
+        """
+        Distribute probabilities across the map for the next step.
+        
+        Args:
+            lastprobmap: Previous probability map
+            astroids: Asteroid probabilities for each position
+            
+        Returns:
+            New probability distribution map
+        """
         #Get indices of tiles that, with probability > 0, has a ship placed on it
         idx = np.where(lastprobmap > 0)
         vals = lastprobmap[idx]
@@ -71,14 +115,27 @@ class Unitpos(base_component):
         
         return nw
 
-    def learn(self, shipPositions):             
-
+    def learn(self, shipPositions: np.ndarray) -> None:             
+        """
+        Update the current unit positions.
+        
+        Args:
+            shipPositions: Array of current ship positions
+        """
         #Place ship at indices
         self.map = np.zeros(self.mapsize)
         self.map[(shipPositions[:,0],shipPositions[:,1])]+=1
 
-    def predict(self, astroidPredictions):
-
+    def predict(self, astroidPredictions: np.ndarray) -> np.ndarray:
+        """
+        Predict unit positions for the next horizon steps.
+        
+        Args:
+            astroidPredictions: Predicted asteroid positions for each step
+            
+        Returns:
+            Array of probability maps for each future step
+        """
         #In case we wan't to keep the current map in memory
         map = np.copy(self.map)
 

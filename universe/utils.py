@@ -1,3 +1,10 @@
+"""
+This module provides utility functions for processing observations, replay files, and grid visualizations for Lux AI Season 3.
+
+It includes functions for loading and filtering observations, handling coordinate symmetry, computing set operations between grids,
+and generating Unicode-based visual representations of map states for debugging and analysis.
+"""
+
 import json
 from argparse import Namespace
 import numpy as np

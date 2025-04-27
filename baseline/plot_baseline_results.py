@@ -1,3 +1,10 @@
+"""
+This script fetches training metrics from a Weights & Biases (wandb) run and generates visualizations of the loss curve and player scores over time.
+
+It downloads run history, applies smoothing to the loss values, and plots both training loss and match scores between the PPO agent and the rule-based agent.
+The generated plots are saved for reporting.
+"""
+
 import wandb
 import matplotlib.pyplot as plt
 import os
@@ -9,7 +16,7 @@ api = wandb.Api()
 
 # Correct W&B path
 run = api.run("Team-Mojo/baseline/s748ma3r")
-''
+
 
 # Fetch history
 history = run.history()

@@ -1,3 +1,10 @@
+"""
+This module defines the Energy class for modeling and predicting the dynamic behavior of energy nodes in the Lux AI Season 3 environment.
+
+The Energy class tracks energy node appearance and disappearance, learns the underlying drift speed based on observed changes, 
+and predicts future energy distributions across a planning horizon. 
+
+"""
 from universe.base_component import base_component
 import jax
 import jax.lax as lax
@@ -9,7 +16,7 @@ from jax import jit
 
 energy_node_drift_speed=jnp.array([0.01, 0.02, 0.03, 0.04, 0.05])
 change_steps = jnp.array([20, 25, 34, 40, 50, 60, 67, 75, 80, 100]) + 2
-#change_steps_set:set = set(change_steps)
+
 
 @jit
 def closest_change_rate(change_rate: float) -> float:
@@ -153,21 +160,6 @@ class Energy(base_component):
 
         self.map = jnp.full((24,24),jnp.nan)
 
-
-    
-    
-    # def get_found_unique(self, value:float)->Tuple[bool,float]:
-    #     value = jnp.where(value<=100, value,  value - round_down_to_nearest_100(value)).item()
-    #     if not self.should_check(value):
-    #         return False, 0.0
-    #     if value % 20 == 0 and value!=100:
-    #         return True, 0.05
-    #     elif value % 25 == 0 and (value!=100 and value!=50):
-    #         return True, 0.04
-    #     elif value ==34 or value == 67 != 0:
-    #         return True, 0.03
-    #     return False, 0.0
-    
 
     def _set_symetry(self):
         ones_or_zeroes = jnp.where(~jnp.isnan(self.map))

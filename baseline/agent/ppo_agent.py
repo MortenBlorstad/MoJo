@@ -1,6 +1,8 @@
-
-import torch
-
+"""
+The Baseline PPO Agent. Standard PPO that uses representations from universe as input and outputs actions for the 16 ships.
+Implementation of the PPO algorithm is based on the code from the github repo https://github.com/nikhilbarhate99/PPO-PyTorch and 
+adopted to our use case.
+"""
 from universe.universe import Universe
 import numpy as np
 import jax.numpy as jnp
@@ -27,6 +29,7 @@ def getZapCoords(position, zaprange, probmap):
     y = min(y,23)	
     #Return target coordinates
     return (x,y),probmap[(x,y)]
+
 
 class PPOAgent:
         
@@ -55,7 +58,20 @@ class PPOAgent:
         actions[sap_actions,1:] = sap_cords[sap_actions]
         return actions
 
-    def act(self, step, obs, remainingOverageTime: int = 60):
+    def act(self, step:int, obs:dict, remainingOverageTime: int = 60)->np.ndarray:
+        """
+        Selects an action for the agent based on the current environment observation.
+        Agent receives the observation which is processed by the universe and then mapped to an action using the actor network.
+
+        args:
+            step: The current step in the game.
+            obs: The observation from the environment.
+            remainingOverageTime: The remaining time for the agent to make a decision.
+        
+        Returns:
+            np.ndarray: An array of selected actions for each active unit.
+        """
+
         state = self.universe.predict(obs)
         one_hot_pos = np.zeros((1, 16, 24*24))
         coordinates = np.zeros((16, 2))

@@ -14,6 +14,8 @@ from universe.scalarencoder import NaiveScalarEncoder
 from universe.obs_to_state import State
 from scipy.spatial.distance import cdist
 
+
+# region Helper functions
 def single_relic_heatmap(relic_position, shape):
     """
     Generates a heatmap for a single relic where:
@@ -345,7 +347,7 @@ def get_closest_relic_distance(ship_positions, relic_nodes, max_distance=12):
     return closest_distances / max_possible_distance
 
 
-
+# endregion
 
 class Universe():
 
@@ -464,7 +466,7 @@ class Universe():
     
 
     #s_{t:t+h} | o_{t}
-    def predict(self, observation:dict):        
+    def predict(self, observation:dict)->dict[str, np.ndarray]:        
 
         #Create state from observation        
         state:State = State(observation,self.player)

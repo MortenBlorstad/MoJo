@@ -1,3 +1,10 @@
+"""
+This script evaluates the agents by running a round-robin tournament between the different RL agents (baseline PPO, Director, and rule-based agent) in the Lux AI Season 3 environment.
+
+It plays multiple matches between each pair of agents, tracks win/loss results, updates ELO ratings based on match outcomes, and prints final tournament standings.
+Agents are freshly instantiated for each match, and pretrained models (e.g., PPOAgent) are loaded if necessary.
+"""
+
 import os
 import numpy as np
 import jax.numpy as jnp

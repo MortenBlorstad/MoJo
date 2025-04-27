@@ -145,7 +145,7 @@ class State():
 
 
         
-        #--------------- Removed by Jørgen. This is not needed? ---------------
+        
         
         # added relic node to state. TODO we need to add functionality to add relic tiles
         observed_relic_node_positions = np.array(obs["relic_nodes"]) # shape (max_relic_nodes, 2)
@@ -179,7 +179,7 @@ class State():
         np.add.at(player_units_count, tuple(player_available_unit_count.T), 1)
         return player_units_count / max(player_units_count.sum(), 1)
     
-    #--------------- Removed by Jørgen. This is not needed? ---------------
+    
  
     def get_relic_node_pos(self, relic_nodes_mask:np.ndarray, relic_node_positions:np.ndarray)->np.ndarray:
         relic_node_grid = np.zeros((24, 24), dtype=int)
